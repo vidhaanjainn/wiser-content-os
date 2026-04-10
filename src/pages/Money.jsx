@@ -23,11 +23,10 @@ export default function Money({ showToast }) {
   const [form, setForm]       = useState(EMPTY_DEAL)
   const [editId, setEditId]   = useState(null)
   const [invForm, setInvForm] = useState(EMPTY_INV)
-  const [glForm, setGlForm]   = useState({ id: null, brand: '', deliverables: '', amount: 0, agency: '', go_live_date: today(), go_live_link: '', payment_days: '30' })
-
-  
+  const [glForm, setGlForm]   = useState({ id: null, brand: '', deliverables: '', amount: 0, agency: '', go_live_date: '', go_live_link: '', payment_days: '30' })
 
   const [showTotal, setShowTotal] = useState(false)
+
   const set    = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const setInv = (k, v) => setInvForm(f => ({ ...f, [k]: v }))
   const setGl  = (k, v) => setGlForm(f => ({ ...f, [k]: v }))
@@ -83,17 +82,19 @@ export default function Money({ showToast }) {
 
   // ── OPEN GO-LIVE MODAL ─────────────────────────────────────
   function openGoLive(deal) {
-    setGlForm({
+    const newForm = {
       id: deal.id,
-      brand: deal.brand,
+      brand: deal.brand || '',
       deliverables: deal.deliverables || '',
       amount: deal.amount || 0,
       agency: deal.agency || '',
       go_live_date: today(),
       go_live_link: '',
       payment_days: String(deal.payment_days || 30),
-    })
-    setModal('golive')
+    }
+    setGlForm(newForm)
+    // Small delay ensures state is set before modal renders
+    setTimeout(() => setModal('golive'), 50)
   }
 
   async function handleMarkLive() {
@@ -107,21 +108,24 @@ export default function Money({ showToast }) {
       status: 'pending',
       due_date: dueDate,
     })
-    showToast('Marked live!')
+    showToast('Marked live! Open Invoice to send.')
     setModal(null)
-    // Pre-fill invoice and open it
-    setInvForm({
-      name: 'Vidhaan Jain',
-      brand: glForm.brand,
-      agency: glForm.agency,
-      deliverables: glForm.deliverables,
-      amount: String(glForm.amount),
-      gst: '0',
-      date: glForm.go_live_date,
-      due: dueDate || '',
-      campaign_code: '',
-    })
-    setTimeout(() => setModal('invoice'), 300)
+    // Pre-fill invoice from the deal
+    const deal = deals.find(d => d.id === glForm.id)
+    if (deal) {
+      setInvForm({
+        name: 'Vidhaan Jain',
+        brand: glForm.brand,
+        agency: glForm.agency,
+        deliverables: glForm.deliverables,
+        amount: String(glForm.amount),
+        gst: '0',
+        date: glForm.go_live_date,
+        due: dueDate || '',
+        campaign_code: deal.notes?.match(/[Cc]ode[:\s]+([A-Z0-9_]+)/)?.[1] || '',
+      })
+      setTimeout(() => setModal('invoice'), 100)
+    }
   }
 
   // ── DEAL MODAL OPEN/SAVE ───────────────────────────────────
