@@ -25,8 +25,9 @@ export default function Money({ showToast }) {
   const [invForm, setInvForm] = useState(EMPTY_INV)
   const [glForm, setGlForm]   = useState({ id: null, brand: '', deliverables: '', amount: 0, agency: '', go_live_date: today(), go_live_link: '', payment_days: '30' })
 
-  const [showTotal, setShowTotal] = useState(false)
+  
 
+  const [showTotal, setShowTotal] = useState(false)
   const set    = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const setInv = (k, v) => setInvForm(f => ({ ...f, [k]: v }))
   const setGl  = (k, v) => setGlForm(f => ({ ...f, [k]: v }))
