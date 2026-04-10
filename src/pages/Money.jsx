@@ -25,6 +25,8 @@ export default function Money({ showToast }) {
   const [invForm, setInvForm] = useState(EMPTY_INV)
   const [glForm, setGlForm]   = useState({ id: null, brand: '', deliverables: '', amount: 0, agency: '', go_live_date: today(), go_live_link: '', payment_days: '30' })
 
+  const [showTotal, setShowTotal] = useState(false)
+
   const set    = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const setInv = (k, v) => setInvForm(f => ({ ...f, [k]: v }))
   const setGl  = (k, v) => setGlForm(f => ({ ...f, [k]: v }))
@@ -45,7 +47,8 @@ export default function Money({ showToast }) {
         }
       }
     })
-    return { month, pipeline, overdue, monthCount, pipeCount, overdueCount }
+    const grandTotal = deals.filter(d => d.status === 'confirmed').reduce((s, d) => s + (Number(d.amount) || 0), 0)
+    return { month, pipeline, overdue, monthCount, pipeCount, overdueCount, grandTotal }
   }, [deals])
 
   // ── AD ALERTS ──────────────────────────────────────────────
@@ -224,6 +227,31 @@ export default function Money({ showToast }) {
         <StatTile label="This Month"  value={fmtINR(stats.month)}    badge={`${stats.monthCount} received`} badgeType="green" valueColor="var(--lime)" />
         <StatTile label="Pipeline"    value={fmtINR(stats.pipeline)} badge={`${stats.pipeCount} pending`}   badgeType="blue" />
         <StatTile label="Overdue"     value={fmtINR(stats.overdue)}  badge={`${stats.overdueCount} deals`}  badgeType="red"  valueColor={stats.overdue > 0 ? 'var(--red)' : undefined} />
+      </div>
+
+      {/* GRAND TOTAL — tap to reveal */}
+      <div
+        onClick={() => setShowTotal(s => !s)}
+        style={{
+          marginTop: 10,
+          background: 'var(--bg2)', border: '1px solid var(--bd)',
+          borderRadius: 'var(--r-lg)', padding: '12px 14px',
+          cursor: 'pointer', transition: 'border-color .15s',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}
+      >
+        <div>
+          <div className="label" style={{ marginBottom: showTotal ? 6 : 0 }}>Total Earned (All Time)</div>
+          {showTotal
+            ? <div style={{ fontFamily: 'var(--fh)', fontSize: 28, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--lime)' }}>
+                {fmtINRFull(stats.grandTotal)}
+              </div>
+            : <div style={{ fontSize: 12, color: 'var(--t3)' }}>Tap to reveal</div>
+          }
+        </div>
+        <div style={{ fontSize: 18, color: 'var(--t3)', transition: 'transform .2s', transform: showTotal ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+          ›
+        </div>
       </div>
 
       {/* AWAITING GO-LIVE */}

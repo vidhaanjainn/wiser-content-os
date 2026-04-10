@@ -20,7 +20,10 @@ export function Modal({ open, onClose, title, children }) {
     <div className="modal-overlay open" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="modal-handle" />
-        <h3 className="modal-title">{title}</h3>
+        <div className="modal-header">
+          <h3 className="modal-title" style={{ margin: 0 }}>{title}</h3>
+          <button className="modal-close" onClick={onClose} aria-label="Close">&#x2715;</button>
+        </div>
         {children}
       </div>
     </div>
