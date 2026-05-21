@@ -68,10 +68,17 @@ export default function Money({ showToast }) {
     const monthDeals = [], pipeDeals = [], overdueDeals = []
     deals.forEach(d => {
       const amt = Number(d.amount) || 0
-      if (d.status === 'overdue') {
+
+      // Overdue: explicitly marked OR has a past due date and isn't paid
+      const dueDateStr = d.due_date || (d.go_live_date ? calcPaymentDue(d.go_live_date, d.payment_days) : null)
+      const isPastDue = dueDateStr ? daysUntil(dueDateStr) < 0 : false
+      const isOverdue = d.status === 'overdue' || (d.status !== 'confirmed' && isPastDue)
+      if (isOverdue) {
         overdue += amt; overdueCount++; overdueDeals.push(d)
       }
-      if (['negotiating','pending'].includes(d.status)) {
+
+      // Pipeline: pending/negotiating that are NOT overdue
+      if (['negotiating','pending'].includes(d.status) && !isPastDue) {
         pipeline += amt; pipeCount++; pipeDeals.push(d)
       }
       if (d.status === 'confirmed') {
