@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+
 // ── CARD ─────────────────────────────────────────────────────
 export function Card({ children, style, className = '' }) {
   return (
@@ -12,7 +14,7 @@ export function Label({ children }) {
   return <div className="label">{children}</div>
 }
 
-// ── STAT TILE ────────────────────────────────────────────────
+// ── STAT TILE WITH COUNT-UP ───────────────────────────────────
 export function StatTile({ label, value, badge, badgeType = 'green', valueColor }) {
   return (
     <div className="stat-tile">
@@ -57,11 +59,23 @@ export function AddBtn({ children, onClick }) {
   )
 }
 
-// ── LOADING SPINNER ──────────────────────────────────────────
+// ── SKELETON LOADER ──────────────────────────────────────────
 export function Spinner() {
   return (
-    <div className="loading-state">
-      <span className="spin">⟳</span> Loading…
+    <div style={{ padding: '14px 0' }}>
+      {[1, 2, 3].map(i => (
+        <div key={i} className="skeleton-row">
+          <div className="skeleton skeleton-dot" style={{ width: 7, height: 7, animationDelay: `${i * 80}ms` }} />
+          <div style={{ flex: 1 }}>
+            <div className="skeleton skeleton-line" style={{ width: '55%', marginBottom: 6, animationDelay: `${i * 80}ms` }} />
+            <div className="skeleton skeleton-line" style={{ width: '35%', height: 8, animationDelay: `${i * 120}ms` }} />
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div className="skeleton skeleton-line" style={{ width: 44, marginBottom: 6, animationDelay: `${i * 80}ms` }} />
+            <div className="skeleton skeleton-line" style={{ width: 36, height: 8, animationDelay: `${i * 120}ms` }} />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

@@ -83,6 +83,9 @@ export default function App() {
     }
   }
 
+  const tabIndex = TABS.findIndex(t => t.key === activeTab)
+  const pct = 100 / TABS.length
+
   return (
     <>
       {/* TOPBAR */}
@@ -101,6 +104,14 @@ export default function App() {
 
       {/* BOTTOM NAV */}
       <nav className="bottom-nav">
+        {/* Sliding active indicator */}
+        <div
+          className="nav-indicator"
+          style={{
+            width: `${pct}%`,
+            transform: `translateX(${tabIndex * 100}%)`,
+          }}
+        />
         {TABS.map(tab => (
           <button
             key={tab.key}
