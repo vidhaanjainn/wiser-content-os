@@ -67,10 +67,13 @@ export default function Money({ showToast }) {
       const amt = Number(d.amount) || 0
       if (d.status === 'overdue')                             { overdue += amt; overdueCount++ }
       if (['negotiating','pending'].includes(d.status))       { pipeline += amt; pipeCount++ }
-      if (d.status === 'confirmed' && d.created_at) {
-        const c = new Date(d.created_at)
-        if (c.getMonth() === now.getMonth() && c.getFullYear() === now.getFullYear()) {
-          month += amt; monthCount++
+      if (d.status === 'confirmed') {
+        const dateStr = d.paid_at || d.created_at
+        if (dateStr) {
+          const c = new Date(dateStr)
+          if (c.getMonth() === now.getMonth() && c.getFullYear() === now.getFullYear()) {
+            month += amt; monthCount++
+          }
         }
       }
     })
@@ -111,7 +114,7 @@ export default function Money({ showToast }) {
   async function markPaidQuick(id, e) {
     e.stopPropagation()
     setPaidFlash(id)
-    await updateDeal(id, { status: 'confirmed' })
+    await updateDeal(id, { status: 'confirmed', paid_at: today() })
     showToast('Payment received! 🎉')
     if (navigator.vibrate) navigator.vibrate([50, 20, 80])
     setTimeout(() => setPaidFlash(null), 600)
@@ -607,7 +610,7 @@ export default function Money({ showToast }) {
               className="btn btn-full"
               style={{ background: 'var(--green-bg)', color: 'var(--green)', borderColor: 'var(--green-bd)', fontWeight: 700 }}
               onClick={async () => {
-                await updateDeal(editId, { status: 'confirmed' })
+                await updateDeal(editId, { status: 'confirmed', paid_at: today() })
                 showToast('Marked as paid! 🎉')
                 if (navigator.vibrate) navigator.vibrate([50, 20, 80])
                 setModal(null)

@@ -591,7 +591,13 @@ select.form-input { cursor: pointer; }
 @media print {
   /* Hide everything except the invoice */
   html, body { background: white !important; }
-  body > * { visibility: hidden !important; display: none !important; }
+  /* visibility:hidden allows children to override with visibility:visible
+     display:none cannot be overridden by children — do NOT use it here */
+  body > * { visibility: hidden !important; }
+
+  .print-invoice, .print-invoice * {
+    visibility: visible !important;
+  }
 
   .print-invoice {
     display: block !important;
