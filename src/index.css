@@ -126,12 +126,14 @@ body {
 .nav-item svg { width: 20px; height: 20px; stroke-width: 1.6; flex-shrink: 0; }
 
 /* ── PAGE ANIMATION ──────────────────────────────────────── */
+/* NOTE: no transform — transform creates a fixed-positioning containing block
+   which breaks position:fixed modals inside the scroll-area */
 .page-enter {
   animation: fadeUp .2s ease both;
 }
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ── SECTION HEADER ──────────────────────────────────────── */
@@ -513,13 +515,13 @@ select.form-input { cursor: pointer; }
 }
 .deal-row.paid-flash { animation: paidPulse .6s ease forwards; }
 
-/* ── STAGGERED DEAL ROW ENTRANCE ─────────────────────────── */
+/* ── STAGGERED DEAL ROW ENTRANCE (opacity-only) ──────────── */
 .deal-row {
   animation: dealIn .28s ease both;
 }
 @keyframes dealIn {
-  from { opacity: 0; transform: translateX(-6px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ── SKELETON SHIMMER ────────────────────────────────────── */
@@ -541,7 +543,7 @@ select.form-input { cursor: pointer; }
 .skeleton-line { height: 10px; border-radius: 4px; }
 
 /* ── ANIMATED NAV INDICATOR ──────────────────────────────── */
-.bottom-nav { position: relative; }
+/* keep position:fixed from original — just add overflow:visible for the indicator */
 .nav-indicator {
   position: absolute;
   top: 0; left: 0;
@@ -559,13 +561,13 @@ select.form-input { cursor: pointer; }
 .nav-item svg { transition: transform .2s cubic-bezier(.34,1.56,.64,1); }
 .nav-item:active svg { transform: scale(0.88); }
 
-/* ── PAGE TRANSITION (improved) ──────────────────────────── */
+/* ── PAGE TRANSITION (improved, opacity-only — no transform) ─ */
 .page-enter {
-  animation: pageIn .22s cubic-bezier(.22,1,.36,1) both;
+  animation: pageIn .22s ease both;
 }
 @keyframes pageIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ── CARD HOVER GLOW ─────────────────────────────────────── */

@@ -103,8 +103,8 @@ export default function App() {
       </main>
 
       {/* BOTTOM NAV */}
-      <nav className="bottom-nav">
-        {/* Sliding active indicator */}
+      <nav className="bottom-nav" style={{ position: 'fixed' }}>
+        {/* Sliding active indicator — positioned inside nav */}
         <div
           className="nav-indicator"
           style={{
