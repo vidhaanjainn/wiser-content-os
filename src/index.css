@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 /* ── RESET ───────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -51,6 +51,7 @@ button { cursor: pointer; border: none; background: none; }
 
   --fh: 'Syne', sans-serif;
   --fb: 'DM Sans', sans-serif;
+  --fn: 'Space Grotesk', sans-serif;  /* number / data display font */
 
   --nav-h:  56px;
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -181,8 +182,9 @@ body {
   border-radius: var(--r-lg); padding: 12px 14px;
 }
 .stat-val {
-  font-family: var(--fh);
+  font-family: var(--fn);
   font-size: 26px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── BADGE ───────────────────────────────────────────────── */
@@ -220,7 +222,7 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .deal-right { text-align: right; flex-shrink: 0; }
-.deal-amt { font-size: 13px; font-weight: 600; }
+.deal-amt { font-size: 13px; font-weight: 600; font-family: var(--fn); font-variant-numeric: tabular-nums; }
 .deal-status {
   display: inline-block;
   font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
@@ -363,7 +365,7 @@ body {
 /* ── FUNNEL ──────────────────────────────────────────────── */
 .funnel-row { display: flex; align-items: center; padding: 4px 0; }
 .funnel-step { flex: 1; text-align: center; }
-.funnel-val { font-family: var(--fh); font-size: 22px; font-weight: 700; }
+.funnel-val { font-family: var(--fn); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .funnel-lbl { font-size: 10px; color: var(--t3); margin-top: 2px; }
 .funnel-arrow { font-size: 14px; color: var(--t3); flex-shrink: 0; }
 
@@ -467,7 +469,7 @@ select.form-input { cursor: pointer; }
 /* ── INVOICE PREVIEW ─────────────────────────────────────── */
 .inv-line { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--bd); font-size: 13px; }
 .inv-line:last-child { border-bottom: none; }
-.inv-total { display: flex; justify-content: space-between; padding-top: 10px; font-family: var(--fh); font-size: 17px; font-weight: 700; }
+.inv-total { display: flex; justify-content: space-between; padding-top: 10px; font-family: var(--fn); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .inv-total .val { color: var(--lime); }
 
 /* ── LOADING / EMPTY ─────────────────────────────────────── */
