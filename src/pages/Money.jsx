@@ -48,6 +48,7 @@ export default function Money({ showToast }) {
   const [glForm, setGlForm]     = useState({ id: null, brand: '', deliverables: '', amount: 0, agency: '', go_live_date: '', go_live_link: '', payment_days: '30' })
   const [showTotal, setShowTotal] = useState(false)
   const [emailText, setEmailText] = useState('')
+  const [parsedDeal, setParsedDeal] = useState(null) // extracted deal preview
   const [paidFlash, setPaidFlash] = useState(null)
   const [statModal, setStatModal] = useState(null) // 'month' | 'pipeline' | 'overdue'
 
@@ -244,41 +245,83 @@ export default function Money({ showToast }) {
     const text = emailText
     if (!text.trim()) { showToast('Paste an email first'); return }
 
-    const result = { brand: '', agency: '', deliverables: '', amount: '', notes: '' }
+    const result = { brand: '', agency: 'Direct', deliverables: '', amount: '', notes: '', payment_days: '30' }
 
-    // Amount — ₹X,XX,XXX or Rs X or INR X
+    // Amount — ₹X,XX,XXX or INR X,XXX or "payout" / "commercials" X
     const amtMatch = text.match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)/i)
+      || text.match(/(?:payout|commercials?|cost|fee)[^\d]*([\d,]{4,})/i)
     if (amtMatch) result.amount = amtMatch[1].replace(/,/g, '').split('.')[0]
 
     // Known agencies
-    const agencyNames = Object.keys(AGENCY_DETAILS).concat(['Socioimpulse','Digiwhistle','Madhouse','Finnet','Creators Cube','Kinetic','Opraah','Influns','Madchatter'])
+    const agencyNames = Object.keys(AGENCY_DETAILS).concat([
+      'Socioimpulse','Digiwhistle','Madhouse','Finnet','Creators Cube','Kinetic',
+      'Opraah','Influns','Madchatter','Idiotic Media','Glow & Rise','Glowandrise',
+      'BrandThink','The Brand Think','Confluencr','Vmerg','Kofluence','Routed Media',
+    ])
     for (const ag of agencyNames) {
       if (text.toLowerCase().includes(ag.toLowerCase())) { result.agency = ag; break }
     }
 
-    // Deliverables — "1 Reel", "2 Stories", collab reel etc.
-    const delivMatches = text.match(/\d+\s*(?:collab\s+)?(?:ig\s+)?(?:reel|story|stories|carousel|video|short|yt short)s?(?:\s*[+&]\s*\d+\s*(?:reel|story|stories|carousel|video|short)s?)*/gi)
-    if (delivMatches?.length) result.deliverables = delivMatches.slice(0, 3).join(' + ')
+    // Brand — subject line, "Campaign - X", "Brand: X", "campaign with X"
+    const brandPatterns = [
+      /[Cc]ampaign\s*[-–:]\s*([A-Z][A-Za-z0-9\s&×]+?)(?:\s*\n|\s*$|\s*\|)/,
+      /[Bb]rand\s*[:\-]\s*([A-Z][A-Za-z0-9\s&]+?)(?:\s*\n|\s*$|\s*,)/,
+      /(?:collab with|campaign for|collaboration with|partnering with)\s+(?:the\s+)?([A-Z][A-Za-z0-9\s&]+?)(?:\s+brand|\s+team|\s+campaign|\.|,|\n|$)/i,
+    ]
+    for (const pat of brandPatterns) {
+      const m = text.match(pat)
+      if (m) { result.brand = m[1].trim(); break }
+    }
+
+    // Deliverables
+    const delivMatches = text.match(/\d+\s*(?:x\s*)?\d*\s*(?:collab\s+)?(?:ig\s+)?(?:reel|story|stories|carousel|video|short|yt short|youtube short|link in bio|lib)s?(?:\s*[+&]\s*\d+\s*(?:reel|story|stories|carousel|video|short|lib)s?)*/gi)
+    if (delivMatches?.length) result.deliverables = delivMatches.slice(0, 4).join(' + ')
+
+    // Payment terms
+    const payMatch = text.match(/(\d+)(?:\s*[-–]\s*\d+)?\s*(?:working\s+)?days?/i)
+    if (payMatch) result.payment_days = payMatch[1]
 
     // Campaign code
     const codeMatch = text.match(/(?:campaign\s+code|code)[:\s]+([A-Z0-9_]{3,})/i)
     if (codeMatch) result.notes = 'Campaign code: ' + codeMatch[1]
 
-    // Brand — look for "for [Brand]" "regarding [Brand]" "with [Brand]"
-    const brandMatch = text.match(/(?:for|regarding|collab with|campaign for|partnership with)\s+([A-Z][A-Za-z0-9\s&]+?)(?:\s+collab|\s+campaign|\s+brand|\.|,|\n|$)/i)
-    if (brandMatch) result.brand = brandMatch[1].trim()
+    setParsedDeal(result)
+  }
 
-    setForm(f => ({
-      ...f,
-      brand:        result.brand        || f.brand,
-      agency:       result.agency       || f.agency,
-      deliverables: result.deliverables || f.deliverables,
-      amount:       result.amount       || f.amount,
-      notes:        result.notes        || f.notes,
-    }))
+  async function quickAddDeal() {
+    if (!parsedDeal) return
+    const payload = {
+      brand:        parsedDeal.brand || 'Unknown Brand',
+      agency:       parsedDeal.agency || 'Direct',
+      deliverables: parsedDeal.deliverables,
+      amount:       parseFloat(parsedDeal.amount) || 0,
+      status:       'negotiating',
+      payment_days: parseInt(parsedDeal.payment_days) || 30,
+      notes:        parsedDeal.notes || null,
+    }
+    await addDeal(payload)
+    setParsedDeal(null)
+    setEmailText('')
+    setModal(null)
+    showToast(`${payload.brand} added! ✓`)
+    if (navigator.vibrate) navigator.vibrate([50, 30, 60])
+  }
+
+  function editParsed() {
+    if (!parsedDeal) return
+    setForm({
+      ...EMPTY_DEAL,
+      brand:        parsedDeal.brand || '',
+      agency:       parsedDeal.agency || '',
+      deliverables: parsedDeal.deliverables || '',
+      amount:       parsedDeal.amount || '',
+      notes:        parsedDeal.notes || '',
+      payment_days: parsedDeal.payment_days || '30',
+    })
+    setEditId(null)
+    setParsedDeal(null)
     setEmailText('')
     setModal('deal')
-    showToast('Parsed! Review and confirm the fields.')
   }
 
   // ── INVOICE ────────────────────────────────────────────────
@@ -576,24 +619,56 @@ export default function Money({ showToast }) {
       </Modal>
 
       {/* ── EMAIL PASTE MODAL ────────────────────────────────── */}
-      <Modal open={modal === 'email'} onClose={() => setModal(null)} title="Import from Email">
-        <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 14, lineHeight: 1.5 }}>
-          Paste the brand collab email below. I'll extract the brand, agency, amount, and deliverables automatically.
-        </p>
-        <Field label="Paste email content">
-          <textarea
-            className="form-input"
-            rows={8}
-            value={emailText}
-            onChange={e => setEmailText(e.target.value)}
-            placeholder="Paste the full email here..."
-            style={{ resize: 'vertical', lineHeight: 1.5 }}
-          />
-        </Field>
-        <button className="btn btn-lime btn-full" onClick={parseEmail} style={{ marginBottom: 8 }}>
-          Extract & Fill Deal →
-        </button>
-        <button className="btn btn-ghost btn-full" onClick={() => setModal(null)}>Cancel</button>
+      <Modal open={modal === 'email'} onClose={() => { setModal(null); setParsedDeal(null); setEmailText('') }} title="Import from Email">
+        {!parsedDeal ? (
+          <>
+            <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 14, lineHeight: 1.5 }}>
+              Paste the brand confirmation email. Brand, agency, amount, and deliverables are auto-extracted.
+            </p>
+            <Field label="Paste email content">
+              <textarea
+                className="form-input"
+                rows={9}
+                value={emailText}
+                onChange={e => setEmailText(e.target.value)}
+                placeholder="Paste the full email here..."
+                style={{ resize: 'vertical', lineHeight: 1.5 }}
+              />
+            </Field>
+            <button className="btn btn-lime btn-full" onClick={parseEmail} style={{ marginBottom: 8 }}>
+              Extract Deal →
+            </button>
+            <button className="btn btn-ghost btn-full" onClick={() => { setModal(null); setEmailText('') }}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <div style={{ background: 'var(--lime-bg)', border: '1px solid var(--lime-bd)', borderRadius: 'var(--r)', padding: '14px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, color: 'var(--lime-d)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Extracted</div>
+              {[
+                { label: 'Brand',        val: parsedDeal.brand        || '—' },
+                { label: 'Agency',       val: parsedDeal.agency       || 'Direct' },
+                { label: 'Amount',       val: parsedDeal.amount ? `₹${Number(parsedDeal.amount).toLocaleString('en-IN')}` : '—' },
+                { label: 'Deliverables', val: parsedDeal.deliverables || '—' },
+                { label: 'Payment',      val: `${parsedDeal.payment_days || 30} days` },
+              ].map(r => (
+                <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: 'var(--t3)' }}>{r.label}</span>
+                  <span style={{ fontSize: 12, color: 'var(--t1)', fontWeight: 600, maxWidth: '60%', textAlign: 'right' }}>{r.val}</span>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 12, lineHeight: 1.5 }}>
+              Looks right? Add it instantly, or open the full form to edit first.
+            </p>
+            <button className="btn btn-lime btn-full" onClick={quickAddDeal} style={{ marginBottom: 8 }}>
+              ✓ Add Deal Now
+            </button>
+            <button className="btn btn-ghost btn-full" onClick={editParsed} style={{ marginBottom: 8 }}>
+              Edit Details First →
+            </button>
+            <button className="btn btn-ghost btn-full" onClick={() => setParsedDeal(null)}>← Re-paste</button>
+          </>
+        )}
       </Modal>
 
       {/* ── DEAL MODAL ───────────────────────────────────────── */}
