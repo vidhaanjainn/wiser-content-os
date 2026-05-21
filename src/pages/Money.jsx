@@ -49,6 +49,7 @@ export default function Money({ showToast }) {
   const [showTotal, setShowTotal] = useState(false)
   const [emailText, setEmailText] = useState('')
   const [paidFlash, setPaidFlash] = useState(null)
+  const [statModal, setStatModal] = useState(null) // 'month' | 'pipeline' | 'overdue'
 
   // Invoice number — persists across sessions
   const [invNum, setInvNum] = useState(() => parseInt(localStorage.getItem('wiser_next_inv') || '544'))
@@ -59,26 +60,34 @@ export default function Money({ showToast }) {
   const setBillTo = (k, v) => setBillToState(f => ({ ...f, [k]: v }))
 
   // ── STATS ──────────────────────────────────────────────────
-  const stats = useMemo(() => {
+  const { stats, statDeals } = useMemo(() => {
     const now = new Date()
     let month = 0, pipeline = 0, overdue = 0
     let monthCount = 0, pipeCount = 0, overdueCount = 0
+    const monthDeals = [], pipeDeals = [], overdueDeals = []
     deals.forEach(d => {
       const amt = Number(d.amount) || 0
-      if (d.status === 'overdue')                             { overdue += amt; overdueCount++ }
-      if (['negotiating','pending'].includes(d.status))       { pipeline += amt; pipeCount++ }
+      if (d.status === 'overdue') {
+        overdue += amt; overdueCount++; overdueDeals.push(d)
+      }
+      if (['negotiating','pending'].includes(d.status)) {
+        pipeline += amt; pipeCount++; pipeDeals.push(d)
+      }
       if (d.status === 'confirmed') {
         const dateStr = d.paid_at || d.created_at
         if (dateStr) {
           const c = new Date(dateStr)
           if (c.getMonth() === now.getMonth() && c.getFullYear() === now.getFullYear()) {
-            month += amt; monthCount++
+            month += amt; monthCount++; monthDeals.push(d)
           }
         }
       }
     })
     const grandTotal = deals.filter(d => d.status === 'confirmed').reduce((s, d) => s + (Number(d.amount) || 0), 0)
-    return { month, pipeline, overdue, monthCount, pipeCount, overdueCount, grandTotal }
+    return {
+      stats: { month, pipeline, overdue, monthCount, pipeCount, overdueCount, grandTotal },
+      statDeals: { month: monthDeals, pipeline: pipeDeals, overdue: overdueDeals },
+    }
   }, [deals])
 
   // ── AD ALERTS ──────────────────────────────────────────────
@@ -320,9 +329,17 @@ export default function Money({ showToast }) {
 
       {/* STATS */}
       <div className="grid3">
-        <StatTile label="This Month"  value={fmtINR(stats.month)}    badge={`${stats.monthCount} received`} badgeType="green" valueColor="var(--lime)" />
-        <StatTile label="Pipeline"    value={fmtINR(stats.pipeline)} badge={`${stats.pipeCount} pending`}   badgeType="blue" />
-        <StatTile label="Overdue"     value={fmtINR(stats.overdue)}  badge={`${stats.overdueCount} deals`}  badgeType="red"  valueColor={stats.overdue > 0 ? 'var(--red)' : undefined} />
+        {[
+          { key: 'month',    label: 'This Month',  value: fmtINR(stats.month),    badge: `${stats.monthCount} received`, badgeType: 'green', valueColor: 'var(--lime)' },
+          { key: 'pipeline', label: 'Pipeline',    value: fmtINR(stats.pipeline), badge: `${stats.pipeCount} pending`,   badgeType: 'blue' },
+          { key: 'overdue',  label: 'Overdue',     value: fmtINR(stats.overdue),  badge: `${stats.overdueCount} deals`,  badgeType: 'red',  valueColor: stats.overdue > 0 ? 'var(--red)' : undefined },
+        ].map(t => (
+          <div key={t.key} className="stat-tile" style={{ cursor: 'pointer' }} onClick={() => setStatModal(t.key)}>
+            <div className="label">{t.label}</div>
+            <div className="stat-val" style={t.valueColor ? { color: t.valueColor } : {}}>{t.value || '—'}</div>
+            <div className={`badge badge-${t.badgeType}`} style={{ marginTop: 8 }}>{t.badge}</div>
+          </div>
+        ))}
       </div>
 
       {/* GRAND TOTAL */}
@@ -489,6 +506,45 @@ export default function Money({ showToast }) {
         </div>
       </Card>
 
+      {/* ── STAT DETAIL MODAL ───────────────────────────────── */}
+      {(() => {
+        const cfg = {
+          month:    { title: 'Received This Month', color: 'var(--lime)',  deals: statDeals.month },
+          pipeline: { title: 'Pipeline',             color: 'var(--blue)',  deals: statDeals.pipeline },
+          overdue:  { title: 'Overdue',              color: 'var(--red)',   deals: statDeals.overdue },
+        }[statModal] || null
+        if (!cfg) return null
+        const total = cfg.deals.reduce((s, d) => s + (Number(d.amount) || 0), 0)
+        return (
+          <Modal open={!!statModal} onClose={() => setStatModal(null)} title={cfg.title}>
+            {cfg.deals.length === 0
+              ? <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t3)', fontSize: 13 }}>No deals here</div>
+              : cfg.deals.map(d => (
+                <div
+                  key={d.id}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--bd)', cursor: 'pointer' }}
+                  onClick={() => { setStatModal(null); setTimeout(() => openEdit(d), 80) }}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)' }}>{d.brand}</div>
+                    <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{d.agency && d.agency !== 'Direct' ? d.agency : ''}{d.deliverables ? (d.agency && d.agency !== 'Direct' ? ' · ' : '') + d.deliverables : ''}</div>
+                  </div>
+                  <div style={{ fontFamily: 'var(--fn)', fontVariantNumeric: 'tabular-nums', fontSize: 15, fontWeight: 700, color: cfg.color }}>{fmtINR(d.amount)}</div>
+                </div>
+              ))
+            }
+            {cfg.deals.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: 'var(--t3)', fontWeight: 600 }}>{cfg.deals.length} deal{cfg.deals.length !== 1 ? 's' : ''}</div>
+                <div style={{ fontFamily: 'var(--fn)', fontSize: 16, fontWeight: 700, color: cfg.color }}>{fmtINR(total)}</div>
+              </div>
+            )}
+            <div style={{ marginTop: 16 }} />
+            <button className="btn btn-ghost btn-full" onClick={() => setStatModal(null)}>Close</button>
+          </Modal>
+        )
+      })()}
+
       {/* ── GO-LIVE MODAL ────────────────────────────────────── */}
       <Modal open={modal === 'golive'} onClose={() => setModal(null)} title={`${glForm.brand} — Mark Live`}>
         <div style={{ background: 'var(--bg3)', borderRadius: 'var(--r)', padding: '10px 12px', marginBottom: 16 }}>
@@ -606,23 +662,37 @@ export default function Money({ showToast }) {
         </Field>
         {editId && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-            <button
-              className="btn btn-full"
-              style={{ background: 'var(--green-bg)', color: 'var(--green)', borderColor: 'var(--green-bd)', fontWeight: 700 }}
-              onClick={async () => {
-                await updateDeal(editId, { status: 'confirmed', paid_at: today() })
-                showToast('Marked as paid! 🎉')
-                if (navigator.vibrate) navigator.vibrate([50, 20, 80])
-                setModal(null)
-              }}
-            >✓ Mark Paid</button>
-            <button
-              className="btn btn-ghost btn-full"
-              onClick={() => {
-                const deal = deals.find(d => d.id === editId)
-                if (deal) { setModal(null); setTimeout(() => openGoLive(deal), 80) }
-              }}
-            >▶ Mark Live</button>
+            {form.status !== 'confirmed' ? (
+              <>
+                <button
+                  className="btn btn-full"
+                  style={{ background: 'var(--green-bg)', color: 'var(--green)', borderColor: 'var(--green-bd)', fontWeight: 700 }}
+                  onClick={async () => {
+                    await updateDeal(editId, { status: 'confirmed', paid_at: today() })
+                    showToast('Marked as paid! 🎉')
+                    if (navigator.vibrate) navigator.vibrate([50, 20, 80])
+                    setModal(null)
+                  }}
+                >✓ Mark Paid</button>
+                <button
+                  className="btn btn-ghost btn-full"
+                  onClick={() => {
+                    const deal = deals.find(d => d.id === editId)
+                    if (deal) { setModal(null); setTimeout(() => openGoLive(deal), 80) }
+                  }}
+                >▶ Mark Live</button>
+              </>
+            ) : (
+              <button
+                className="btn btn-full"
+                style={{ gridColumn: '1 / -1', background: 'var(--red-bg)', color: 'var(--red)', borderColor: 'var(--red-bd)', fontWeight: 600 }}
+                onClick={async () => {
+                  await updateDeal(editId, { status: 'pending', paid_at: null })
+                  showToast('Marked as unpaid')
+                  set('status', 'pending')
+                }}
+              >↩ Mark Unpaid</button>
+            )}
           </div>
         )}
         {editId && (
