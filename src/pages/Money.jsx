@@ -352,15 +352,23 @@ export default function Money({ showToast }) {
             <div className="label">🎬 Awaiting Go-Live</div>
           </div>
           {awaitingGoLive.map((d, i) => (
-            <div key={d.id} className="deal-row" style={{ animationDelay: `${i * 40}ms` }} onClick={() => openGoLive(d)}>
+            <div key={d.id} className="deal-row" style={{ animationDelay: `${i * 40}ms` }} onClick={() => openEdit(d)}>
               <div className="deal-dot" style={{ background: 'var(--blue)' }} />
               <div className="deal-info">
                 <div className="deal-brand">{d.brand}{d.agency && d.agency !== 'Direct' ? ` × ${d.agency}` : ''}</div>
-                <div className="deal-meta">{d.deliverables} · Tap to mark live</div>
+                <div className="deal-meta">{d.deliverables} · {fmtINR(d.amount)} · Tap to edit</div>
               </div>
-              <div className="deal-right">
-                <div className="deal-amt">{fmtINR(d.amount)}</div>
-                <div className="deal-status" style={{ background: 'var(--blue-bg)', color: 'var(--blue)' }}>Not live</div>
+              <div className="deal-right" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div>
+                  <div className="deal-amt">{fmtINR(d.amount)}</div>
+                  <div className="deal-status" style={{ background: 'var(--blue-bg)', color: 'var(--blue)' }}>Not live</div>
+                </div>
+                <button
+                  className="mark-paid-btn"
+                  style={{ background: 'var(--blue-bg)', borderColor: 'var(--blue-bd)', color: 'var(--blue)', fontSize: 11, width: 36, height: 36, borderRadius: 8 }}
+                  onClick={e => { e.stopPropagation(); openGoLive(d) }}
+                  title="Mark as live"
+                >▶</button>
               </div>
             </div>
           ))}
@@ -594,18 +602,25 @@ export default function Money({ showToast }) {
           <Input value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="e.g. Campaign code: 918_Kotak_01" />
         </Field>
         {editId && (
-          <button
-            className="btn btn-full"
-            style={{ marginBottom: 8, background: 'var(--green-bg)', color: 'var(--green)', borderColor: 'var(--green-bd)', fontWeight: 700 }}
-            onClick={async () => {
-              await updateDeal(editId, { status: 'confirmed' })
-              showToast('Marked as paid! 🎉')
-              if (navigator.vibrate) navigator.vibrate([50, 20, 80])
-              setModal(null)
-            }}
-          >
-            ✓ Mark as Received / Paid
-          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+            <button
+              className="btn btn-full"
+              style={{ background: 'var(--green-bg)', color: 'var(--green)', borderColor: 'var(--green-bd)', fontWeight: 700 }}
+              onClick={async () => {
+                await updateDeal(editId, { status: 'confirmed' })
+                showToast('Marked as paid! 🎉')
+                if (navigator.vibrate) navigator.vibrate([50, 20, 80])
+                setModal(null)
+              }}
+            >✓ Mark Paid</button>
+            <button
+              className="btn btn-ghost btn-full"
+              onClick={() => {
+                const deal = deals.find(d => d.id === editId)
+                if (deal) { setModal(null); setTimeout(() => openGoLive(deal), 80) }
+              }}
+            >▶ Mark Live</button>
+          </div>
         )}
         {editId && (
           <button
@@ -613,7 +628,7 @@ export default function Money({ showToast }) {
             style={{ marginBottom: 8 }}
             onClick={() => { const deal = deals.find(d => d.id === editId); if (deal) openInvoiceFromDeal(deal); }}
           >
-            🧾 Generate Invoice for this Deal
+            🧾 Generate Invoice
           </button>
         )}
         <button className="btn btn-lime btn-full" onClick={handleSaveDeal} style={{ marginBottom: 8 }}>
