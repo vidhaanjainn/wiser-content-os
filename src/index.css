@@ -588,9 +588,24 @@ select.form-input { cursor: pointer; }
 /* ─────────────────────────────────────────────────────────── */
 .print-invoice { display: none; }
 
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
 @media print {
-  /* Hide everything except the invoice */
-  html, body { background: white !important; }
+  /* Force full paper width regardless of device viewport */
+  html {
+    width: 210mm;
+    min-width: 210mm;
+  }
+  body {
+    width: 210mm;
+    min-width: 210mm;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   /* visibility:hidden allows children to override with visibility:visible
      display:none cannot be overridden by children — do NOT use it here */
   body > * { visibility: hidden !important; }
@@ -603,7 +618,8 @@ select.form-input { cursor: pointer; }
     display: block !important;
     visibility: visible !important;
     position: fixed;
-    top: 0; left: 0; right: 0;
+    top: 0; left: 0;
+    width: 210mm;
     font-family: 'Helvetica Neue', Arial, sans-serif;
     color: #111;
     background: white;
@@ -741,7 +757,8 @@ select.form-input { cursor: pointer; }
     display: block !important;
     visibility: visible !important;
     position: fixed;
-    top: 0; left: 0; right: 0;
+    top: 0; left: 0;
+    width: 210mm;
     font-family: 'Helvetica Neue', Arial, sans-serif;
     color: #111;
     background: white;
