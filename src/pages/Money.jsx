@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useDeals } from '../hooks/useDeals'
 import { Modal, Field, Input, Select, Row2 } from '../components/Modal'
 import { Card, SectionHeader, AddBtn, Spinner, Empty, StatTile } from '../components/UI'
@@ -51,6 +51,9 @@ export default function Money({ showToast }) {
   const [parsedDeal, setParsedDeal] = useState(null) // extracted deal preview
   const [paidFlash, setPaidFlash] = useState(null)
   const [statModal, setStatModal] = useState(null) // 'month' | 'pipeline' | 'overdue'
+  const [tdsModal, setTdsModal]   = useState(null) // { id, brand, amount }
+  const [tdsReceived, setTdsReceived] = useState('')
+  const [printMode, setPrintMode] = useState(null) // 'invoice' | 'tds'
 
   // Invoice number — persists across sessions
   const [invNum, setInvNum] = useState(() => parseInt(localStorage.getItem('wiser_next_inv') || '544'))
@@ -127,14 +130,50 @@ export default function Money({ showToast }) {
     [deals]
   )
 
-  // ── QUICK MARK PAID ────────────────────────────────────────
-  async function markPaidQuick(id, e) {
+  // ── PRINT TRIGGER ─────────────────────────────────────────
+  useEffect(() => {
+    if (!printMode) return
+    const t = setTimeout(() => {
+      window.print()
+      setPrintMode(null)
+    }, 120)
+    return () => clearTimeout(t)
+  }, [printMode])
+
+  // ── TDS LEDGER ─────────────────────────────────────────────
+  const tdsLedger = useMemo(() =>
+    deals
+      .filter(d => d.status === 'confirmed' && d.amount_received != null && Number(d.amount_received) < Number(d.amount))
+      .map(d => ({
+        ...d,
+        tds_deducted: Number(d.amount) - Number(d.amount_received),
+        tds_pct: Math.round((Number(d.amount) - Number(d.amount_received)) / Number(d.amount) * 100),
+      }))
+      .sort((a, b) => b.tds_deducted - a.tds_deducted),
+    [deals]
+  )
+  const tdsTotalAtRisk = tdsLedger.filter(d => d.tds_ais_status !== 'confirmed').reduce((s, d) => s + d.tds_deducted, 0)
+
+  // ── QUICK MARK PAID → opens TDS prompt ───────────────────
+  function markPaidQuick(id, e) {
     e.stopPropagation()
+    const deal = deals.find(d => d.id === id)
+    setTdsReceived(String(deal?.amount || ''))
+    setTdsModal({ id, brand: deal?.brand || '', amount: Number(deal?.amount || 0) })
+  }
+
+  async function confirmMarkPaid() {
+    const { id, amount } = tdsModal
+    const received = parseFloat(tdsReceived) || amount
     setPaidFlash(id)
-    await updateDeal(id, { status: 'confirmed', paid_at: today() })
-    showToast('Payment received! 🎉')
+    await updateDeal(id, { status: 'confirmed', paid_at: today(), amount_received: received })
+    showToast('Payment logged! 🎉')
     if (navigator.vibrate) navigator.vibrate([50, 20, 80])
-    setTimeout(() => setPaidFlash(null), 600)
+    setTimeout(() => setPaidFlash(null), 700)
+    setTdsModal(null)
+    setTdsReceived('')
+    // also close edit modal if open
+    setModal(null)
   }
 
   // ── OPEN GO-LIVE MODAL ─────────────────────────────────────
@@ -365,10 +404,13 @@ export default function Money({ showToast }) {
 
   function printInvoice() {
     if (!invAmt) { showToast('Enter amount first'); return }
-    // Save invoice number, increment for next time
     localStorage.setItem('wiser_next_inv', String(invNum + 1))
     setInvNum(n => n + 1)
-    setTimeout(() => window.print(), 80)
+    setPrintMode('invoice')
+  }
+
+  function printTDS() {
+    setPrintMode('tds')
   }
 
   if (loading) return <div className="scroll-area"><Spinner /></div>
@@ -541,6 +583,63 @@ export default function Money({ showToast }) {
         </div>
       </Card>
 
+      {/* TDS LEDGER */}
+      {tdsLedger.length > 0 && (
+        <Card style={{ marginTop: 10 }}>
+          <div className="card-pad" style={{ paddingBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="label">🧾 TDS Ledger</div>
+              <button className="btn btn-ghost btn-sm" onClick={printTDS}>Print / Export PDF</button>
+            </div>
+            {tdsTotalAtRisk > 0 && (
+              <div style={{ background: 'rgba(240,160,48,0.1)', border: '1px solid rgba(240,160,48,0.2)', borderRadius: 6, padding: '8px 12px', marginTop: 8 }}>
+                <span style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 700 }}>
+                  ₹{tdsTotalAtRisk.toLocaleString('en-IN')} at risk — not yet confirmed in AIS
+                </span>
+              </div>
+            )}
+          </div>
+          {tdsLedger.map(d => (
+            <div key={d.id} style={{ padding: '10px 14px', borderTop: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{d.brand}</div>
+                <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 1 }}>
+                  Invoice ₹{Number(d.amount).toLocaleString('en-IN')} · Received ₹{Number(d.amount_received).toLocaleString('en-IN')} · TDS {d.tds_pct}%
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--t3)' }}>{d.paid_at || d.created_at?.slice(0,10)}</div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontFamily: 'var(--fn)', fontSize: 15, fontWeight: 700, color: 'var(--amber)' }}>
+                  ₹{d.tds_deducted.toLocaleString('en-IN')}
+                </div>
+                <button
+                  style={{
+                    marginTop: 4, fontSize: 10, fontWeight: 700, padding: '3px 8px',
+                    borderRadius: 4, border: '1px solid',
+                    cursor: 'pointer',
+                    background: d.tds_ais_status === 'confirmed' ? 'var(--green-bg)' : d.tds_ais_status === 'missing' ? 'var(--red-bg)' : 'var(--bg3)',
+                    color: d.tds_ais_status === 'confirmed' ? 'var(--green)' : d.tds_ais_status === 'missing' ? 'var(--red)' : 'var(--t3)',
+                    borderColor: d.tds_ais_status === 'confirmed' ? 'var(--green-bd)' : d.tds_ais_status === 'missing' ? 'var(--red-bd)' : 'var(--bd)',
+                  }}
+                  onClick={() => {
+                    const next = d.tds_ais_status === 'unchecked' ? 'confirmed' : d.tds_ais_status === 'confirmed' ? 'missing' : 'unchecked'
+                    updateDeal(d.id, { tds_ais_status: next })
+                  }}
+                >
+                  {d.tds_ais_status === 'confirmed' ? '✓ In AIS' : d.tds_ais_status === 'missing' ? '✗ Missing' : '? Check AIS'}
+                </button>
+              </div>
+            </div>
+          ))}
+          <div style={{ padding: '10px 14px', borderTop: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 12, color: 'var(--t3)' }}>Total TDS deducted</span>
+            <span style={{ fontFamily: 'var(--fn)', fontSize: 14, fontWeight: 700, color: 'var(--amber)' }}>
+              ₹{tdsLedger.reduce((s, d) => s + d.tds_deducted, 0).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </Card>
+      )}
+
       {/* INVOICE + EMAIL IMPORT BUTTONS */}
       <Card>
         <div className="card-pad">
@@ -555,6 +654,53 @@ export default function Money({ showToast }) {
           </div>
         </div>
       </Card>
+
+      {/* ── TDS MODAL ───────────────────────────────────────── */}
+      {tdsModal && (() => {
+        const received = parseFloat(tdsReceived) || 0
+        const tdsAmt = tdsModal.amount - received
+        const tdsPct = tdsModal.amount > 0 ? Math.round(tdsAmt / tdsModal.amount * 100) : 0
+        const hasTDS = received > 0 && received < tdsModal.amount
+        return (
+          <Modal open={!!tdsModal} onClose={() => { setTdsModal(null); setTdsReceived('') }} title={`Payment received — ${tdsModal.brand}`}>
+            <div style={{ background: 'var(--bg3)', borderRadius: 'var(--r)', padding: '10px 14px', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 2 }}>Invoice amount</div>
+              <div style={{ fontFamily: 'var(--fn)', fontSize: 22, fontWeight: 700, color: 'var(--lime)' }}>
+                ₹{tdsModal.amount.toLocaleString('en-IN')}
+              </div>
+            </div>
+            <Field label="Amount actually credited to your account (₹)">
+              <Input
+                type="number"
+                value={tdsReceived}
+                onChange={e => setTdsReceived(e.target.value)}
+                placeholder={String(tdsModal.amount)}
+                autoFocus
+              />
+            </Field>
+            {hasTDS && (
+              <div style={{ background: 'rgba(240,160,48,0.1)', border: '1px solid rgba(240,160,48,0.25)', borderRadius: 'var(--r)', padding: '10px 14px', marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 700, marginBottom: 4 }}>TDS deducted by brand</div>
+                <div style={{ fontFamily: 'var(--fn)', fontSize: 20, fontWeight: 700, color: 'var(--amber)' }}>
+                  ₹{tdsAmt.toLocaleString('en-IN')} <span style={{ fontSize: 13, fontWeight: 400 }}>({tdsPct}%)</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4 }}>This will be tracked in your TDS ledger. Verify in AIS at tax time.</div>
+              </div>
+            )}
+            <button className="btn btn-lime btn-full" onClick={confirmMarkPaid} style={{ marginBottom: 8 }}>
+              ✓ Confirm Payment
+            </button>
+            <button
+              className="btn btn-ghost btn-full"
+              style={{ marginBottom: 8 }}
+              onClick={() => { setTdsReceived(String(tdsModal.amount)); }}
+            >
+              Full amount received (no TDS)
+            </button>
+            <button className="btn btn-ghost btn-full" onClick={() => { setTdsModal(null); setTdsReceived('') }}>Cancel</button>
+          </Modal>
+        )
+      })()}
 
       {/* ── STAT DETAIL MODAL ───────────────────────────────── */}
       {(() => {
@@ -749,11 +895,10 @@ export default function Money({ showToast }) {
                 <button
                   className="btn btn-full"
                   style={{ background: 'var(--green-bg)', color: 'var(--green)', borderColor: 'var(--green-bd)', fontWeight: 700 }}
-                  onClick={async () => {
-                    await updateDeal(editId, { status: 'confirmed', paid_at: today() })
-                    showToast('Marked as paid! 🎉')
-                    if (navigator.vibrate) navigator.vibrate([50, 20, 80])
-                    setModal(null)
+                  onClick={() => {
+                    const deal = deals.find(d => d.id === editId)
+                    setTdsReceived(String(deal?.amount || ''))
+                    setTdsModal({ id: editId, brand: deal?.brand || '', amount: Number(deal?.amount || 0) })
                   }}
                 >✓ Mark Paid</button>
                 <button
@@ -891,73 +1036,124 @@ export default function Money({ showToast }) {
         </p>
       )}
 
-      {/* ── PRINT INVOICE (hidden on screen, full layout when printing) ── */}
-      <div className="print-invoice">
-        <div className="pi-header">
-          <div className="pi-from-name">Vidhaan Jain</div>
-          <div className="pi-title-block">
-            <div className="pi-title">INVOICE</div>
-            <div className="pi-num">#{invNum - 1}</div>
-          </div>
-        </div>
-
-        <div className="pi-meta-row">
-          <div className="pi-billto">
-            <div className="pi-meta-label">Bill To:</div>
-            <div className="pi-company">{billTo.company || invForm.agency || invForm.brand}</div>
-            {billTo.address && <div className="pi-addr">{billTo.address}</div>}
-            {billTo.gstin && <div className="pi-gst">GSTIN/UIN: {billTo.gstin}</div>}
-            {billTo.pan && <div className="pi-pan">PAN: {billTo.pan}</div>}
-          </div>
-          <div className="pi-dates">
-            <table className="pi-date-table">
-              <tbody>
-                <tr><td className="pi-dt-label">Date:</td><td className="pi-dt-val">{invForm.date}</td></tr>
-                <tr><td className="pi-dt-label">Due Date:</td><td className="pi-dt-val">{invForm.due || '—'}</td></tr>
-              </tbody>
-            </table>
-            <div className="pi-balance-box">
-              <div className="pi-balance-label">Balance Due:</div>
-              <div className="pi-balance-val">₹{fmtINRFull(invTotal || invAmt)}</div>
+      {/* ── PRINT INVOICE ── */}
+      {printMode === 'invoice' && (
+        <div className="print-invoice">
+          <div className="pi-header">
+            <div className="pi-from-name">Vidhaan Jain</div>
+            <div className="pi-title-block">
+              <div className="pi-title">INVOICE</div>
+              <div className="pi-num">#{invNum - 1}</div>
             </div>
           </div>
-        </div>
 
-        <table className="pi-items-table">
-          <thead>
-            <tr>
-              <th className="pi-th-item">Item</th>
-              <th className="pi-th">Quantity</th>
-              <th className="pi-th">Rate</th>
-              <th className="pi-th">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="pi-td-item">
-                <strong>{invForm.campaign_code ? `${invForm.campaign_code} — ` : ''}{invForm.deliverables || 'Content creation'}</strong>
-              </td>
-              <td className="pi-td">1</td>
-              <td className="pi-td">₹{fmtINRFull(invAmt)}</td>
-              <td className="pi-td">₹{fmtINRFull(invAmt)}</td>
-            </tr>
-          </tbody>
-        </table>
+          <div className="pi-meta-row">
+            <div className="pi-billto">
+              <div className="pi-meta-label">Bill To:</div>
+              <div className="pi-company">{billTo.company || invForm.agency || invForm.brand}</div>
+              {billTo.address && <div className="pi-addr">{billTo.address}</div>}
+              {billTo.gstin && <div className="pi-gst">GSTIN/UIN: {billTo.gstin}</div>}
+              {billTo.pan && <div className="pi-pan">PAN: {billTo.pan}</div>}
+            </div>
+            <div className="pi-dates">
+              <table className="pi-date-table">
+                <tbody>
+                  <tr><td className="pi-dt-label">Date:</td><td className="pi-dt-val">{invForm.date}</td></tr>
+                  <tr><td className="pi-dt-label">Due Date:</td><td className="pi-dt-val">{invForm.due || '—'}</td></tr>
+                </tbody>
+              </table>
+              <div className="pi-balance-box">
+                <div className="pi-balance-label">Balance Due:</div>
+                <div className="pi-balance-val">₹{fmtINRFull(invTotal || invAmt)}</div>
+              </div>
+            </div>
+          </div>
 
-        <div className="pi-totals">
-          <div className="pi-total-row"><span>Subtotal:</span><span>₹{fmtINRFull(invAmt)}</span></div>
-          <div className="pi-total-row"><span>Tax ({invGST}%):</span><span>₹{fmtINRFull(invTax)}</span></div>
-          <div className="pi-total-row pi-grand"><span>Total:</span><span>₹{fmtINRFull(invTotal)}</span></div>
-        </div>
+          <table className="pi-items-table">
+            <thead>
+              <tr>
+                <th className="pi-th-item">Item</th>
+                <th className="pi-th">Quantity</th>
+                <th className="pi-th">Rate</th>
+                <th className="pi-th">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="pi-td-item">
+                  <strong>{invForm.campaign_code ? `${invForm.campaign_code} — ` : ''}{invForm.deliverables || 'Content creation'}</strong>
+                </td>
+                <td className="pi-td">1</td>
+                <td className="pi-td">₹{fmtINRFull(invAmt)}</td>
+                <td className="pi-td">₹{fmtINRFull(invAmt)}</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <div className="pi-notes">
-          <div className="pi-notes-label">Notes:</div>
-          <div className="pi-payment-header">Payment Details:</div>
-          <div>Bank Details:</div>
-          <div>Bank Name - SBI</div>
-          <div>A/C Name - Vidhaan Jain &nbsp;&nbsp;&nbsp; A/c number - 34074199631 &nbsp;&nbsp;&nbsp; IFSC Code - SBIN0016842 &nbsp;&nbsp;&nbsp; PAN - BETPJ2184N</div>
+          <div className="pi-totals">
+            <div className="pi-total-row"><span>Subtotal:</span><span>₹{fmtINRFull(invAmt)}</span></div>
+            <div className="pi-total-row"><span>Tax ({invGST}%):</span><span>₹{fmtINRFull(invTax)}</span></div>
+            <div className="pi-total-row pi-grand"><span>Total:</span><span>₹{fmtINRFull(invTotal)}</span></div>
+          </div>
+
+          <div className="pi-notes">
+            <div className="pi-notes-label">Notes:</div>
+            <div className="pi-payment-header">Payment Details:</div>
+            <div>Bank Details:</div>
+            <div>Bank Name - SBI</div>
+            <div>A/C Name - Vidhaan Jain &nbsp;&nbsp;&nbsp; A/c number - 34074199631 &nbsp;&nbsp;&nbsp; IFSC Code - SBIN0016842 &nbsp;&nbsp;&nbsp; PAN - BETPJ2184N</div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ── PRINT TDS LEDGER ── */}
+      {printMode === 'tds' && (
+        <div className="print-tds">
+          <div className="ptds-header">
+            <div className="ptds-name">Vidhaan Jain — TDS Ledger</div>
+            <div className="ptds-date">Generated: {today()}</div>
+          </div>
+          <table className="ptds-table">
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Invoice (₹)</th>
+                <th>Received (₹)</th>
+                <th>TDS (₹)</th>
+                <th>%</th>
+                <th>Paid On</th>
+                <th>AIS Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tdsLedger.map(d => (
+                <tr key={d.id}>
+                  <td>{d.brand}</td>
+                  <td>{Number(d.amount).toLocaleString('en-IN')}</td>
+                  <td>{Number(d.amount_received).toLocaleString('en-IN')}</td>
+                  <td>{d.tds_deducted.toLocaleString('en-IN')}</td>
+                  <td>{d.tds_pct}%</td>
+                  <td>{d.paid_at || d.created_at?.slice(0, 10) || '—'}</td>
+                  <td>{d.tds_ais_status === 'confirmed' ? 'In AIS ✓' : d.tds_ais_status === 'missing' ? 'Missing ✗' : 'Unchecked'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="ptds-totals">
+            <div className="ptds-total-row">
+              <span>Total TDS Deducted:</span>
+              <span>₹{tdsLedger.reduce((s, d) => s + d.tds_deducted, 0).toLocaleString('en-IN')}</span>
+            </div>
+            <div className="ptds-total-row ptds-at-risk">
+              <span>At Risk (not in AIS):</span>
+              <span>₹{tdsTotalAtRisk.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          <div className="ptds-footer">
+            This document is for personal tax reference only. Cross-check with your AIS on the Income Tax portal before filing.
+          </div>
+        </div>
+      )}
     </div>
   )
 }

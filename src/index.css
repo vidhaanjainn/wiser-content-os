@@ -732,4 +732,94 @@ select.form-input { cursor: pointer; }
   }
   .pi-notes-label    { font-weight: 700; color: #111; margin-bottom: 4px; }
   .pi-payment-header { font-weight: 700; color: #111; margin-top: 10px; }
+
+  /* ── TDS LEDGER PRINT ── */
+  .print-tds, .print-tds * {
+    visibility: visible !important;
+  }
+  .print-tds {
+    display: block !important;
+    visibility: visible !important;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: #111;
+    background: white;
+    padding: 40px 48px;
+    font-size: 12px;
+  }
+
+  .ptds-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 28px;
+    border-bottom: 2px solid #111;
+    padding-bottom: 12px;
+  }
+  .ptds-name {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .ptds-date {
+    font-size: 12px;
+    color: #666;
+  }
+
+  .ptds-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+  .ptds-table thead tr {
+    background: #1a1a1a;
+    color: white;
+  }
+  .ptds-table th {
+    padding: 9px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: left;
+  }
+  .ptds-table th:not(:first-child) { text-align: right; }
+  .ptds-table tbody tr { border-bottom: 1px solid #e8e8e8; }
+  .ptds-table td {
+    padding: 10px 12px;
+    font-size: 12px;
+    vertical-align: top;
+    color: #222;
+  }
+  .ptds-table td:not(:first-child) { text-align: right; }
+  .ptds-table tbody tr:nth-child(even) { background: #f8f8f8; }
+
+  .ptds-totals {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    margin-bottom: 24px;
+  }
+  .ptds-total-row {
+    display: flex;
+    gap: 32px;
+    font-size: 13px;
+    color: #333;
+  }
+  .ptds-total-row span:last-child { min-width: 100px; text-align: right; font-weight: 600; }
+  .ptds-at-risk {
+    font-weight: 700;
+    color: #b45309;
+    border-top: 1px solid #ddd;
+    padding-top: 6px;
+    margin-top: 2px;
+  }
+
+  .ptds-footer {
+    font-size: 10px;
+    color: #888;
+    border-top: 1px solid #e8e8e8;
+    padding-top: 12px;
+    line-height: 1.6;
+  }
 }
