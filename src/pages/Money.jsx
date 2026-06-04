@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useDeals } from '../hooks/useDeals'
 import { Modal, Field, Input, Select, Row2 } from '../components/Modal'
 import { Card, SectionHeader, AddBtn, Spinner, Empty, StatTile } from '../components/UI'
@@ -53,7 +53,6 @@ export default function Money({ showToast }) {
   const [statModal, setStatModal] = useState(null) // 'month' | 'pipeline' | 'overdue'
   const [tdsModal, setTdsModal]   = useState(null) // { id, brand, amount }
   const [tdsReceived, setTdsReceived] = useState('')
-  const [printMode, setPrintMode] = useState(null) // 'invoice' | 'tds'
 
   // Invoice number — persists across sessions
   const [invNum, setInvNum] = useState(() => parseInt(localStorage.getItem('wiser_next_inv') || '544'))
@@ -129,16 +128,6 @@ export default function Money({ showToast }) {
       .sort((a, b) => (a.diffDue ?? 999) - (b.diffDue ?? 999)),
     [deals]
   )
-
-  // ── PRINT TRIGGER ─────────────────────────────────────────
-  useEffect(() => {
-    if (!printMode) return
-    const t = setTimeout(() => {
-      window.print()
-      setPrintMode(null)
-    }, 120)
-    return () => clearTimeout(t)
-  }, [printMode])
 
   // ── TDS LEDGER ─────────────────────────────────────────────
   const tdsLedger = useMemo(() =>
@@ -406,11 +395,21 @@ export default function Money({ showToast }) {
     if (!invAmt) { showToast('Enter amount first'); return }
     localStorage.setItem('wiser_next_inv', String(invNum + 1))
     setInvNum(n => n + 1)
-    setPrintMode('invoice')
+    // Use body class so the print div is always in the DOM — avoids the
+    // non-blocking window.print() race where the div gets removed too early.
+    document.body.classList.add('wiser-print-invoice')
+    window.addEventListener('afterprint', () => {
+      document.body.classList.remove('wiser-print-invoice')
+    }, { once: true })
+    setTimeout(() => window.print(), 150)
   }
 
   function printTDS() {
-    setPrintMode('tds')
+    document.body.classList.add('wiser-print-tds')
+    window.addEventListener('afterprint', () => {
+      document.body.classList.remove('wiser-print-tds')
+    }, { once: true })
+    setTimeout(() => window.print(), 100)
   }
 
   if (loading) return <div className="scroll-area"><Spinner /></div>
@@ -1036,9 +1035,8 @@ export default function Money({ showToast }) {
         </p>
       )}
 
-      {/* ── PRINT INVOICE ── */}
-      {printMode === 'invoice' && (
-        <div className="print-invoice">
+      {/* ── PRINT INVOICE (always in DOM, shown only when body has wiser-print-invoice class) ── */}
+      <div className="print-invoice">
           <div className="pi-header">
             <div className="pi-from-name">Vidhaan Jain</div>
             <div className="pi-title-block">
@@ -1104,11 +1102,10 @@ export default function Money({ showToast }) {
             <div>A/C Name - Vidhaan Jain &nbsp;&nbsp;&nbsp; A/c number - 34074199631 &nbsp;&nbsp;&nbsp; IFSC Code - SBIN0016842 &nbsp;&nbsp;&nbsp; PAN - BETPJ2184N</div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ── PRINT TDS LEDGER ── */}
-      {printMode === 'tds' && (
-        <div className="print-tds">
+      {/* ── PRINT TDS LEDGER (always in DOM, shown only when body has wiser-print-tds class) ── */}
+      <div className="print-tds">
           <div className="ptds-header">
             <div className="ptds-name">Vidhaan Jain — TDS Ledger</div>
             <div className="ptds-date">Generated: {today()}</div>
@@ -1153,7 +1150,7 @@ export default function Money({ showToast }) {
             This document is for personal tax reference only. Cross-check with your AIS on the Income Tax portal before filing.
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

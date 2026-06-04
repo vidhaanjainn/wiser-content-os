@@ -584,9 +584,9 @@ select.form-input { cursor: pointer; }
 .stat-tile:active { transform: scale(0.97); }
 
 /* ─────────────────────────────────────────────────────────── */
-/* ── PRINT INVOICE STYLES (hidden on screen) ────────────── */
-/* ─────────────────────────────────────────────────────────── */
-.print-invoice { display: none; }
+/* ── PRINT DIVS HIDDEN ON SCREEN ────────────────────────── */
+.print-invoice,
+.print-tds { display: none; }
 
 @page {
   size: A4 portrait;
@@ -606,17 +606,15 @@ select.form-input { cursor: pointer; }
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* visibility:hidden allows children to override with visibility:visible
-     display:none cannot be overridden by children — do NOT use it here */
   body > * { visibility: hidden !important; }
 
-  .print-invoice, .print-invoice * {
+  /* Invoice — only shown when body has wiser-print-invoice class */
+  body.wiser-print-invoice .print-invoice,
+  body.wiser-print-invoice .print-invoice * {
     visibility: visible !important;
   }
-
-  .print-invoice {
+  body.wiser-print-invoice .print-invoice {
     display: block !important;
-    visibility: visible !important;
     position: fixed;
     top: 0; left: 0;
     width: 210mm;
@@ -749,13 +747,13 @@ select.form-input { cursor: pointer; }
   .pi-notes-label    { font-weight: 700; color: #111; margin-bottom: 4px; }
   .pi-payment-header { font-weight: 700; color: #111; margin-top: 10px; }
 
-  /* ── TDS LEDGER PRINT ── */
-  .print-tds, .print-tds * {
+  /* ── TDS LEDGER PRINT — only shown when body has wiser-print-tds class ── */
+  body.wiser-print-tds .print-tds,
+  body.wiser-print-tds .print-tds * {
     visibility: visible !important;
   }
-  .print-tds {
+  body.wiser-print-tds .print-tds {
     display: block !important;
-    visibility: visible !important;
     position: fixed;
     top: 0; left: 0;
     width: 210mm;
