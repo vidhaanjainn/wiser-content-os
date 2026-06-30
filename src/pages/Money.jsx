@@ -412,6 +412,92 @@ export default function Money({ showToast }) {
     setTimeout(() => window.print(), 100)
   }
 
+  function exportCSV() {
+    const headers = ['#','Brand','Agency','Deliverables','Gross (INR)','TDS 10% (INR)','Net Payout (INR)','Status','Go Live','Due Date','Payment Days','Ad Rights (days)','Notes']
+    const rows = deals.map((d, i) => {
+      const gross = Number(d.amount) || 0
+      return [i+1, d.brand, d.agency||'', d.deliverables||'', gross, Math.round(gross*0.1), gross - Math.round(gross*0.1), d.status, d.go_live_date||'', d.due_date||'', d.payment_days||'', d.ad_rights_days||0, d.notes||'']
+    })
+    const totalGross = deals.reduce((s,d) => s+(Number(d.amount)||0), 0)
+    const totalTDS = Math.round(totalGross*0.1)
+    rows.push([], ['','','','TOTAL', totalGross, totalTDS, totalGross-totalTDS, '','','','','',''])
+    const csv = [headers,...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿'+csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href=url; a.download=`WiserOS_Revenue_${today()}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function generateReport() {
+    const R = n => Math.round(Number(n) || 0)
+    const fmtM = n => '₹' + R(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/[₹]/g, '')
+    const sorted = [...deals].sort((a,b) => {
+      const order = { overdue:0, pending:1, negotiating:2, confirmed:3 }
+      return (order[a.status]??4) - (order[b.status]??4)
+    })
+    const totalGross = deals.reduce((s,d) => s+R(d.amount), 0)
+    const totalTDS   = R(totalGross*0.1)
+    const totalNet   = totalGross - totalTDS
+    const rows = sorted.map((d,i) => {
+      const g=R(d.amount), tds=R(g*0.1), net=g-tds
+      const statusColor = { overdue:'#dc2626', pending:'#d97706', negotiating:'#2563eb', confirmed:'#16a34a' }[d.status] || '#6b7280'
+      return `<tr>
+        <td>${i+1}</td><td><strong>${d.brand}</strong></td><td>${d.agency||'—'}</td>
+        <td>${d.deliverables||'—'}</td>
+        <td class="r">${fmtM(g)}</td>
+        <td class="r red">${fmtM(tds)}</td>
+        <td class="r grn">${fmtM(net)}</td>
+        <td><span style="color:${statusColor};font-weight:600;text-transform:capitalize">${d.status}</span></td>
+        <td>${d.go_live_date||'—'}</td><td>${d.due_date||'—'}</td>
+      </tr>`
+    }).join('')
+    const w = window.open('','_blank')
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Wiser OS — Revenue Report</title>
+    <style>
+      body{font-family:system-ui,sans-serif;margin:0;padding:24px;color:#111;background:#fff}
+      h1{font-size:22px;margin:0 0 4px}p.sub{color:#666;font-size:13px;margin:0 0 24px}
+      .tiles{display:flex;gap:16px;margin-bottom:28px;flex-wrap:wrap}
+      .tile{flex:1;min-width:150px;border:1px solid #e5e7eb;border-radius:10px;padding:16px}
+      .tile .lbl{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em}
+      .tile .val{font-size:22px;font-weight:700;margin-top:4px}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{background:#111;color:#fff;padding:8px 10px;text-align:left;font-weight:600}
+      th.r{text-align:right}td{padding:7px 10px;border-bottom:1px solid #f3f4f6}
+      tr:last-child td{border-bottom:none}tr:hover td{background:#f9fafb}
+      td.r{text-align:right}.red{color:#dc2626}.grn{color:#16a34a}
+      .totals-bar{display:flex;gap:12px;margin-top:20px;background:#f9fafb;border-radius:8px;padding:14px 16px;flex-wrap:wrap}
+      .tb{flex:1;min-width:120px}.tb .tl{font-size:11px;color:#6b7280;text-transform:uppercase}.tb .tv{font-size:18px;font-weight:700;margin-top:2px}
+      @media print{body{padding:12px}.tile{min-width:120px}}
+    </style></head><body>
+    <h1>Wiser OS — Revenue Report</h1>
+    <p class="sub">Generated ${new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})}</p>
+    <div class="tiles">
+      <div class="tile"><div class="lbl">Total Gross</div><div class="val">₹${totalGross.toLocaleString('en-IN')}</div></div>
+      <div class="tile"><div class="lbl">Est. TDS (10%)</div><div class="val" style="color:#dc2626">₹${totalTDS.toLocaleString('en-IN')}</div></div>
+      <div class="tile"><div class="lbl">Net Payout</div><div class="val" style="color:#16a34a">₹${totalNet.toLocaleString('en-IN')}</div></div>
+      <div class="tile"><div class="lbl">Total Deals</div><div class="val">${deals.length}</div></div>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Brand</th><th>Agency</th><th>Deliverables</th><th class="r">Gross</th><th class="r">TDS 10%</th><th class="r">Net</th><th>Status</th><th>Go Live</th><th>Due Date</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:#f3f4f6;font-weight:700">
+        <td colspan="4">TOTAL (${deals.length} deals)</td>
+        <td class="r">${fmtM(totalGross)}</td>
+        <td class="r red">${fmtM(totalTDS)}</td>
+        <td class="r grn">${fmtM(totalNet)}</td>
+        <td colspan="3"></td>
+      </tr></tfoot>
+    </table>
+    <div class="totals-bar">
+      <div class="tb"><div class="tl">Gross Revenue</div><div class="tv">₹${totalGross.toLocaleString('en-IN')}</div></div>
+      <div class="tb"><div class="tl">TDS Deducted</div><div class="tv" style="color:#dc2626">− ₹${totalTDS.toLocaleString('en-IN')}</div></div>
+      <div class="tb"><div class="tl">Net in Hand</div><div class="tv" style="color:#16a34a">₹${totalNet.toLocaleString('en-IN')}</div></div>
+    </div>
+    <script>window.onload=()=>window.print()<\/script>
+    </body></html>`)
+    w.document.close()
+  }
+
   if (loading) return <div className="scroll-area"><Spinner /></div>
 
   return (
@@ -650,6 +736,18 @@ export default function Money({ showToast }) {
             <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setForm(EMPTY_DEAL); setEditId(null); setModal('email') }}>
               📩 Paste Email
             </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* EXPORT DATA */}
+      <Card>
+        <div className="card-pad">
+          <div className="label">Export Data</div>
+          <p style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 12, marginTop: 4 }}>Full revenue report with TDS, net payout & all deal details</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-lime" style={{ flex: 1 }} onClick={generateReport}>📊 PDF Report ↗</button>
+            <button className="btn btn-ghost" style={{ flex: 1 }} onClick={exportCSV}>📥 CSV / Excel</button>
           </div>
         </div>
       </Card>
@@ -1102,7 +1200,6 @@ export default function Money({ showToast }) {
             <div>A/C Name - Vidhaan Jain &nbsp;&nbsp;&nbsp; A/c number - 34074199631 &nbsp;&nbsp;&nbsp; IFSC Code - SBIN0016842 &nbsp;&nbsp;&nbsp; PAN - BETPJ2184N</div>
           </div>
         </div>
-      </div>
 
       {/* ── PRINT TDS LEDGER (always in DOM, shown only when body has wiser-print-tds class) ── */}
       <div className="print-tds">
@@ -1151,6 +1248,5 @@ export default function Money({ showToast }) {
           </div>
         </div>
       </div>
-    </div>
   )
 }
