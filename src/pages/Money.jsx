@@ -3,7 +3,7 @@ import { useDeals } from '../hooks/useDeals'
 import { Modal, Field, Input, Select, Row2 } from '../components/Modal'
 import { Card, SectionHeader, AddBtn, Spinner, Empty, StatTile } from '../components/UI'
 import { DEAL_STATUSES, PAYMENT_TERMS, fmtINR, fmtINRFull, today, daysUntil, calcPaymentDue } from '../lib/constants'
-import { isLive } from '../lib/supabase'
+import { isLive } from '../lib/sheets'
 
 // ── KNOWN AGENCY BILL-TO DETAILS ──────────────────────────────
 const AGENCY_DETAILS = {
@@ -1129,7 +1129,7 @@ export default function Money({ showToast }) {
 
       {!isLive && (
         <p style={{ fontSize: 11, color: 'var(--t3)', textAlign: 'center', marginTop: 16 }}>
-          Demo mode — add Supabase keys to persist data
+          Demo mode — add Google Sheets keys to persist data
         </p>
       )}
 
