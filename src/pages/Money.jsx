@@ -53,6 +53,7 @@ export default function Money({ showToast }) {
   const [statModal, setStatModal] = useState(null) // 'month' | 'pipeline' | 'overdue'
   const [tdsModal, setTdsModal]   = useState(null) // { id, brand, amount }
   const [tdsReceived, setTdsReceived] = useState('')
+  const [expandedYear, setExpandedYear] = useState(null)
 
   // Invoice number — persists across sessions
   const [invNum, setInvNum] = useState(() => parseInt(localStorage.getItem('wiser_next_inv') || '544'))
@@ -98,6 +99,39 @@ export default function Money({ showToast }) {
       stats: { month, pipeline, overdue, monthCount, pipeCount, overdueCount, grandTotal },
       statDeals: { month: monthDeals, pipeline: pipeDeals, overdue: overdueDeals },
     }
+  }, [deals])
+
+  // ── MONTHLY / YEARLY BREAKDOWN ───────────────────────────────
+  const periodBreakdown = useMemo(() => {
+    const years = {}
+    deals.forEach(d => {
+      const dateStr = d.paid_at || d.go_live_date || d.created_at
+      if (!dateStr) return
+      const amt = Number(d.amount) || 0
+      const year = dateStr.slice(0, 4)
+      const monthKey = dateStr.slice(0, 7)
+      if (!years[year]) years[year] = { total: 0, count: 0, months: {} }
+      years[year].total += amt
+      years[year].count += 1
+      if (!years[year].months[monthKey]) years[year].months[monthKey] = { total: 0, count: 0 }
+      years[year].months[monthKey].total += amt
+      years[year].months[monthKey].count += 1
+    })
+    return Object.entries(years)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([year, y]) => ({
+        year,
+        total: y.total,
+        count: y.count,
+        months: Object.entries(y.months)
+          .sort((a, b) => b[0].localeCompare(a[0]))
+          .map(([key, m]) => ({
+            key,
+            label: new Date(key + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+            total: m.total,
+            count: m.count,
+          })),
+      }))
   }, [deals])
 
   // ── AD ALERTS ──────────────────────────────────────────────
@@ -667,6 +701,38 @@ export default function Money({ showToast }) {
           <button className="btn btn-ghost btn-sm" onClick={openAdd}>＋ New deal</button>
         </div>
       </Card>
+
+      {/* MONTHLY / YEARLY BREAKDOWN */}
+      {periodBreakdown.length > 0 && (
+        <Card style={{ marginTop: 10 }}>
+          <div className="card-pad" style={{ paddingBottom: 6 }}>
+            <div className="label">📅 Monthly &amp; Yearly Breakdown</div>
+          </div>
+          {periodBreakdown.map(y => (
+            <div key={y.year} style={{ borderTop: '1px solid var(--bd)' }}>
+              <div
+                onClick={() => setExpandedYear(e => e === y.year ? null : y.year)}
+                style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)' }}>{y.year}</div>
+                  <div style={{ fontSize: 11, color: 'var(--t3)' }}>{y.count} deal{y.count !== 1 ? 's' : ''}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontFamily: 'var(--fn)', fontSize: 15, fontWeight: 700, color: 'var(--lime)' }}>{fmtINR(y.total)}</div>
+                  <div style={{ fontSize: 14, color: 'var(--t3)', transform: expandedYear === y.year ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s' }}>›</div>
+                </div>
+              </div>
+              {expandedYear === y.year && y.months.map(m => (
+                <div key={m.key} style={{ padding: '8px 14px 8px 24px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--bd)', background: 'var(--bg3)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--t2)' }}>{m.label} · {m.count} deal{m.count !== 1 ? 's' : ''}</div>
+                  <div style={{ fontFamily: 'var(--fn)', fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>{fmtINR(m.total)}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </Card>
+      )}
 
       {/* TDS LEDGER */}
       {tdsLedger.length > 0 && (
