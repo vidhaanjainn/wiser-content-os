@@ -29,9 +29,10 @@ export function useDeals() {
 
   const updateDeal = useCallback(async (id, updates) => {
     if (isLive) {
-      try { await api.update('deals', id, updates) } catch (e) { console.error(e); return }
+      try { await api.update('deals', id, updates) } catch (e) { console.error(e); return false }
     }
     setDeals(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d))
+    return true
   }, [])
 
   const deleteDeal = useCallback(async (id) => {

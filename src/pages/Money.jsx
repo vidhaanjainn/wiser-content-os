@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useDeals } from '../hooks/useDeals'
 import { Modal, Field, Input, Select, Row2 } from '../components/Modal'
 import { Card, SectionHeader, AddBtn, Spinner, Empty, StatTile } from '../components/UI'
 import { DEAL_STATUSES, PAYMENT_TERMS, fmtINR, fmtINRFull, today, daysUntil, calcPaymentDue } from '../lib/constants'
 import { isLive } from '../lib/api'
+import { CreditBurst, playCoin, useCountUp } from '../components/Celebrate'
 import { InvoicePreview, printInvoice as printInvoiceDoc } from '../components/Invoice'
 
 // ── KNOWN AGENCY BILL-TO DETAILS ──────────────────────────────
@@ -54,6 +55,9 @@ export default function Money({ showToast }) {
   const [statModal, setStatModal] = useState(null) // 'month' | 'pipeline' | 'overdue'
   const [tdsModal, setTdsModal]   = useState(null) // { id, brand, amount }
   const [tdsReceived, setTdsReceived] = useState('')
+  const [burst, setBurst] = useState(null)   // { received, tds, brand } → credit animation
+  const [tilePulse, setTilePulse] = useState(false)
+  const [heldMonth, setHeldMonth] = useState(null) // freezes 'Received' until the coins land
 
   // Invoice number — persists across sessions
   const [invNum, setInvNum] = useState(() => parseInt(localStorage.getItem('wiser_next_inv') || '544'))
@@ -85,11 +89,13 @@ export default function Money({ showToast }) {
         pipeline += amt; pipeCount++; pipeDeals.push(d)
       }
       if (d.status === 'confirmed') {
+        // Received this month = money actually credited (net of TDS), dated by when it was paid
         const dateStr = d.paid_at || d.created_at
         if (dateStr) {
-          const c = new Date(dateStr)
+          const c = new Date(String(dateStr).slice(0, 10) + 'T00:00:00')
           if (c.getMonth() === now.getMonth() && c.getFullYear() === now.getFullYear()) {
-            month += amt; monthCount++; monthDeals.push(d)
+            month += d.amount_received != null ? Number(d.amount_received) : amt
+            monthCount++; monthDeals.push(d)
           }
         }
       }
@@ -100,6 +106,9 @@ export default function Money({ showToast }) {
       statDeals: { month: monthDeals, pipeline: pipeDeals, overdue: overdueDeals },
     }
   }, [deals])
+
+  // Count up only after the coins land (burst clears → tilePulse)
+  const monthAnimated = useCountUp(heldMonth ?? stats.month, 1200)
 
   // ── AD ALERTS ──────────────────────────────────────────────
   const expiringAds = useMemo(() =>
@@ -147,24 +156,38 @@ export default function Money({ showToast }) {
   // ── QUICK MARK PAID → opens TDS prompt ───────────────────
   function markPaidQuick(id, e) {
     e.stopPropagation()
-    const deal = deals.find(d => d.id === id)
-    setTdsReceived(String(deal?.amount || ''))
-    setTdsModal({ id, brand: deal?.brand || '', amount: Number(deal?.amount || 0) })
+    openPaymentPrompt(deals.find(d => d.id === id))
+  }
+
+  function openPaymentPrompt(deal) {
+    if (!deal) return
+    setTdsReceived(String(deal.amount || ''))
+    setTdsModal({ id: deal.id, brand: deal.brand || '', amount: Number(deal.amount || 0) })
   }
 
   async function confirmMarkPaid() {
-    const { id, amount } = tdsModal
+    const { id, amount, brand } = tdsModal
     const received = parseFloat(tdsReceived) || amount
-    setPaidFlash(id)
-    await updateDeal(id, { status: 'confirmed', paid_at: today(), amount_received: received })
-    showToast('Payment logged! 🎉')
-    if (navigator.vibrate) navigator.vibrate([50, 20, 80])
-    setTimeout(() => setPaidFlash(null), 700)
+    if (received > amount) { showToast('Received is more than the invoice amount'); return }
+    playCoin() // inside the click gesture so iOS allows audio
+    setHeldMonth(stats.month)
+    const ok = await updateDeal(id, { status: 'confirmed', paid_at: today(), amount_received: received })
+    if (!ok) { setHeldMonth(null); showToast('Could not save payment. Check your connection.'); return }
     setTdsModal(null)
     setTdsReceived('')
-    // also close edit modal if open
     setModal(null)
+    setPaidFlash(id)
+    setTimeout(() => setPaidFlash(null), 900)
+    if (navigator.vibrate) navigator.vibrate([40, 30, 90])
+    setBurst({ received, tds: Math.max(0, amount - received), brand, key: Date.now() })
   }
+
+  const onBurstDone = useCallback(() => {
+    setBurst(null)
+    setHeldMonth(null)
+    setTilePulse(true)
+    setTimeout(() => setTilePulse(false), 1200)
+  }, [])
 
   // ── OPEN GO-LIVE MODAL ─────────────────────────────────────
   function openGoLive(deal) {
@@ -259,9 +282,21 @@ export default function Money({ showToast }) {
       ad_rights_end:   adDays > 0 ? (form.ad_rights_end   || null) : null,
       notes:           form.notes.trim() || null,
     }
-    if (editId) { await updateDeal(editId, payload); showToast('Deal updated') }
-    else        { await addDeal(payload);             showToast('Deal added') }
+    const prev = editId ? deals.find(d => d.id === editId) : null
+    const becomingPaid = payload.status === 'confirmed' && prev?.status !== 'confirmed'
+    if (becomingPaid) payload.status = prev?.status && prev.status !== 'confirmed' ? prev.status : 'pending'
+
+    let saved
+    if (editId) { saved = (await updateDeal(editId, payload)) ? { ...prev, ...payload } : null }
+    else        { saved = await addDeal(payload) }
+    if (!saved) { showToast('Could not save. Check your connection.'); return }
     setModal(null)
+    if (becomingPaid) {
+      // Never mark paid silently: capture the credited amount so TDS is tracked
+      setTimeout(() => openPaymentPrompt({ ...saved, id: saved.id || editId }), 120)
+    } else {
+      showToast(editId ? 'Deal updated' : 'Deal added')
+    }
   }
 
   async function handleDelete() {
@@ -508,16 +543,23 @@ export default function Money({ showToast }) {
 
   return (
     <div className="scroll-area page-enter">
+      <CreditBurst burst={burst} onDone={onBurstDone} />
       <SectionHeader title="Revenue" action={<AddBtn onClick={openAdd}>＋ Add Deal</AddBtn>} />
 
       {/* STATS */}
       <div className="grid3">
         {[
-          { key: 'month',    label: 'This Month',  value: fmtINR(stats.month),    badge: `${stats.monthCount} received`, badgeType: 'green', valueColor: 'var(--lime)' },
+          { key: 'month',    label: 'Received · ' + new Date().toLocaleDateString('en-IN', { month: 'short' }), value: fmtINR(monthAnimated),    badge: `${stats.monthCount} received`, badgeType: 'green', valueColor: 'var(--lime)' },
           { key: 'pipeline', label: 'Pipeline',    value: fmtINR(stats.pipeline), badge: `${stats.pipeCount} pending`,   badgeType: 'blue' },
           { key: 'overdue',  label: 'Overdue',     value: fmtINR(stats.overdue),  badge: `${stats.overdueCount} deals`,  badgeType: 'red',  valueColor: stats.overdue > 0 ? 'var(--red)' : undefined },
         ].map(t => (
-          <div key={t.key} className="stat-tile" style={{ cursor: 'pointer' }} onClick={() => setStatModal(t.key)}>
+          <div
+            key={t.key}
+            className={`stat-tile${t.key === 'month' && tilePulse ? ' credited' : ''}`}
+            style={{ cursor: 'pointer' }}
+            onClick={() => setStatModal(t.key)}
+            {...(t.key === 'month' ? { 'data-credit-target': '' } : {})}
+          >
             <div className="label">{t.label}</div>
             <div className="stat-val" style={t.valueColor ? { color: t.valueColor } : {}}>{t.value || '—'}</div>
             <div className={`badge badge-${t.badgeType}`} style={{ marginTop: 8 }}>{t.badge}</div>
@@ -791,15 +833,18 @@ export default function Money({ showToast }) {
               </div>
             )}
             <button className="btn btn-lime btn-full" onClick={confirmMarkPaid} style={{ marginBottom: 8 }}>
-              ✓ Confirm Payment
+              ✓ Confirm ₹{(parseFloat(tdsReceived) || tdsModal.amount).toLocaleString('en-IN')} received
             </button>
-            <button
-              className="btn btn-ghost btn-full"
-              style={{ marginBottom: 8 }}
-              onClick={() => { setTdsReceived(String(tdsModal.amount)); }}
-            >
-              Full amount received (no TDS)
-            </button>
+            <div className="tds-chips">
+              {[['Full', 0], ['10% TDS', 10], ['2% TDS', 2], ['1% TDS', 1]].map(([lbl, pct]) => {
+                const v = Math.round(tdsModal.amount * (100 - pct) / 100)
+                return (
+                  <button key={lbl} className={`tds-chip${Number(tdsReceived) === v ? ' on' : ''}`} onClick={() => setTdsReceived(String(v))}>
+                    <span>{lbl}</span><b>₹{v.toLocaleString('en-IN')}</b>
+                  </button>
+                )
+              })}
+            </div>
             <button className="btn btn-ghost btn-full" onClick={() => { setTdsModal(null); setTdsReceived('') }}>Cancel</button>
           </Modal>
         )
@@ -998,11 +1043,7 @@ export default function Money({ showToast }) {
                 <button
                   className="btn btn-full"
                   style={{ background: 'var(--green-bg)', color: 'var(--green)', borderColor: 'var(--green-bd)', fontWeight: 700 }}
-                  onClick={() => {
-                    const deal = deals.find(d => d.id === editId)
-                    setTdsReceived(String(deal?.amount || ''))
-                    setTdsModal({ id: editId, brand: deal?.brand || '', amount: Number(deal?.amount || 0) })
-                  }}
+                  onClick={() => openPaymentPrompt(deals.find(d => d.id === editId))}
                 >✓ Mark Paid</button>
                 <button
                   className="btn btn-ghost btn-full"
@@ -1017,7 +1058,7 @@ export default function Money({ showToast }) {
                 className="btn btn-full"
                 style={{ gridColumn: '1 / -1', background: 'var(--red-bg)', color: 'var(--red)', borderColor: 'var(--red-bd)', fontWeight: 600 }}
                 onClick={async () => {
-                  await updateDeal(editId, { status: 'pending', paid_at: null })
+                  await updateDeal(editId, { status: 'pending', paid_at: null, amount_received: null })
                   showToast('Marked as unpaid')
                   set('status', 'pending')
                 }}

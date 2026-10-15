@@ -712,3 +712,59 @@ textarea.form-input { resize: vertical; min-height: 90px; line-height: 1.5; }
   animation: sweep 1.4s cubic-bezier(.4,0,.2,1) infinite;
 }
 @keyframes sweep { to { transform: translateX(100%); } }
+
+/* ── PAYMENT: TDS QUICK PICKS ────────────────────────────── */
+.tds-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: -2px 0 14px; }
+.tds-chip {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 9px 10px; border-radius: 10px; text-align: left;
+  background: rgba(255,255,255,0.025); border: 1px solid var(--bd2); color: var(--t2);
+  transition: border-color .2s, background .2s, transform .3s var(--spring);
+}
+.tds-chip span { font-family: var(--fm); font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; }
+.tds-chip b { font-size: 12.5px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
+.tds-chip:hover { border-color: var(--bd3); }
+.tds-chip:active { transform: scale(.96); }
+.tds-chip.on { border-color: var(--lime-bd); background: var(--lime-bg); }
+.tds-chip.on b { color: var(--lime); }
+@media (max-width: 400px) { .tds-chips { grid-template-columns: 1fr 1fr; } }
+
+/* ── CREDIT BURST ────────────────────────────────────────── */
+.credit-burst {
+  position: fixed; inset: 0; z-index: 400; pointer-events: none;
+  display: grid; place-items: center;
+  background: radial-gradient(40% 35% at 50% 50%, rgba(205,244,100,0.16), rgba(3,4,6,0.72) 70%);
+  animation: fadeIn .25s ease both;
+}
+.credit-burst.fly { animation: cbFade .9s ease .25s forwards; }
+@keyframes cbFade { to { background: transparent; } }
+.cb-core { display: flex; flex-direction: column; align-items: center; gap: 10px; animation: cbPop .6s var(--spring) both; }
+.credit-burst.fly .cb-core { animation: cbAway .5s var(--ease) forwards; }
+@keyframes cbPop { from { transform: scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cbAway { to { transform: scale(.85) translateY(-10px); opacity: 0; } }
+.cb-ring { width: 104px; height: 104px; filter: drop-shadow(0 0 22px var(--lime-glow)); }
+.cb-ring-track { fill: rgba(205,244,100,0.06); stroke: rgba(205,244,100,0.15); stroke-width: 4; }
+.cb-ring-fill { fill: none; stroke: var(--lime); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transform: rotate(-90deg); transform-origin: 60px 60px; animation: cbDraw .7s var(--ease) .1s forwards; }
+.cb-check { fill: none; stroke: var(--lime); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: cbDraw .45s var(--ease) .55s forwards; }
+@keyframes cbDraw { to { stroke-dashoffset: 0; } }
+.cb-amt { font-size: 38px; font-weight: 600; letter-spacing: -0.045em; color: var(--lime); font-variant-numeric: tabular-nums; text-shadow: 0 0 30px var(--lime-glow); animation: riseIn .5s var(--ease) .35s both; }
+.cb-sub { font-size: 13px; color: var(--t2); animation: riseIn .5s var(--ease) .45s both; text-align: center; padding: 0 24px; }
+.cb-tds { color: var(--amber); }
+.cb-coin {
+  position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  border-radius: 50%; display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; color: #07080a;
+  background: radial-gradient(circle at 30% 30%, #f3ffc4, var(--lime) 55%, #8fb52a);
+  box-shadow: 0 0 12px var(--lime-glow);
+  opacity: 0; transform: translate(0, 0) scale(.3);
+  animation: coinOut .55s var(--spring) calc(.25s + var(--d)) forwards;
+}
+.credit-burst.fly .cb-coin { opacity: 1; transform: translate(var(--x), var(--y)) scale(1); animation: coinFly .75s cubic-bezier(.55,0,.25,1) var(--d) forwards; }
+@keyframes coinOut { to { opacity: 1; transform: translate(var(--x), var(--y)) scale(1); } }
+@keyframes coinFly { 80% { opacity: 1; } to { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(.35); } }
+.stat-tile.credited { border-color: var(--lime-bd); animation: tileCredit 1.2s var(--ease); }
+@keyframes tileCredit {
+  0% { box-shadow: 0 0 0 0 var(--lime-glow), var(--shadow); transform: scale(1); }
+  20% { box-shadow: 0 0 0 6px rgba(205,244,100,0.18), 0 0 40px -6px var(--lime-glow); transform: scale(1.04); }
+  100% { box-shadow: 0 0 0 0 transparent, var(--shadow); transform: scale(1); }
+}
