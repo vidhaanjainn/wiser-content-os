@@ -59,23 +59,28 @@ export function AddBtn({ children, onClick }) {
   )
 }
 
-// ── SKELETON LOADER ──────────────────────────────────────────
-export function Spinner() {
+// ── SKELETON LOADER (page-shaped) ────────────────────────────
+export function Spinner({ tiles = true, rows = 5 }) {
   return (
-    <div style={{ padding: '14px 0' }}>
-      {[1, 2, 3].map(i => (
-        <div key={i} className="skeleton-row">
-          <div className="skeleton skeleton-dot" style={{ width: 7, height: 7, animationDelay: `${i * 80}ms` }} />
-          <div style={{ flex: 1 }}>
-            <div className="skeleton skeleton-line" style={{ width: '55%', marginBottom: 6, animationDelay: `${i * 80}ms` }} />
-            <div className="skeleton skeleton-line" style={{ width: '35%', height: 8, animationDelay: `${i * 120}ms` }} />
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div className="skeleton skeleton-line" style={{ width: 44, marginBottom: 6, animationDelay: `${i * 80}ms` }} />
-            <div className="skeleton skeleton-line" style={{ width: 36, height: 8, animationDelay: `${i * 120}ms` }} />
-          </div>
+    <div className="sk-page" aria-busy="true" aria-label="Loading">
+      <div className="skeleton sk-title" />
+      {tiles && (
+        <div className="sk-tiles">
+          {[0, 1, 2].map(i => <div key={i} className="skeleton sk-tile" style={{ animationDelay: `${i * 90}ms` }} />)}
         </div>
-      ))}
+      )}
+      <div className="sk-card">
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} className="skeleton-row">
+            <div className="skeleton skeleton-dot" />
+            <div style={{ flex: 1 }}>
+              <div className="skeleton skeleton-line" style={{ width: `${60 - (i % 3) * 10}%`, marginBottom: 7 }} />
+              <div className="skeleton skeleton-line" style={{ width: `${38 - (i % 2) * 8}%`, height: 8 }} />
+            </div>
+            <div className="skeleton skeleton-line" style={{ width: 46 }} />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

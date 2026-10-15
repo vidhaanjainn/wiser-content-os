@@ -85,15 +85,39 @@ function useDesktop() {
   return desk
 }
 
-const Logo = () => (
-  <div className="logo"><span className="logo-mark">w</span><span>wiser<em>.</em>os</span></div>
+export const LogoMark = ({ size = 28 }) => (
+  <span className="logo-mark" style={{ width: size, height: size }}>
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M14 22 L22 42 L30 26 L38 42 L46 22" fill="none" stroke="currentColor" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="51" cy="41" r="3.4" fill="currentColor" />
+    </svg>
+  </span>
 )
+
+const Logo = () => (
+  <div className="logo"><LogoMark /><span>wiser<em>.</em>os</span></div>
+)
+
+// Fade out the HTML boot screen once the app has painted (min ~1.2s so the mark finishes drawing)
+function useBootScreen() {
+  useEffect(() => {
+    const boot = document.getElementById('boot')
+    if (!boot) return
+    const wait = Math.max(0, 1250 - performance.now())
+    const t = setTimeout(() => {
+      boot.classList.add('done')
+      setTimeout(() => boot.remove(), 600)
+    }, wait)
+    return () => clearTimeout(t)
+  }, [])
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('wiser_tab') || 'money')
   const [toast, setToast] = useState({ msg: '', show: false })
   const toastTimer = useRef(null)
   const desktop = useDesktop()
+  useBootScreen()
 
   const go = useCallback((key) => {
     setActiveTab(key)
