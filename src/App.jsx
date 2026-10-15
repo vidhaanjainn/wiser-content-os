@@ -86,12 +86,7 @@ function useDesktop() {
 }
 
 export const LogoMark = ({ size = 28 }) => (
-  <span className="logo-mark" style={{ width: size, height: size }}>
-    <svg viewBox="0 0 64 64" aria-hidden="true">
-      <path d="M14 22 L22 42 L30 26 L38 42 L46 22" fill="none" stroke="currentColor" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="51" cy="41" r="3.4" fill="currentColor" />
-    </svg>
-  </span>
+  <span className="logo-mark" style={{ width: size, height: size, fontSize: size * 0.62 }}>w</span>
 )
 
 const Logo = () => (
