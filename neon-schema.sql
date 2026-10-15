@@ -1,6 +1,6 @@
 -- ============================================================
 -- WISER OS — Neon Postgres Schema
--- Includes the go-live columns that were a separate migration on Supabase.
+-- Includes the go-live and payment/TDS columns that were later migrations on Supabase.
 -- Load order: this file, then supabase-seed-full.sql (deal history seed)
 -- ============================================================
 
@@ -20,6 +20,9 @@ create table if not exists deals (
   go_live_date  date,
   payment_days  integer default 30,
   go_live_link  text,
+  paid_at          date,
+  amount_received  numeric,
+  tds_ais_status   text default 'unchecked',
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
