@@ -4,6 +4,7 @@ import { Modal, Field, Input, Select, Row2 } from '../components/Modal'
 import { Card, SectionHeader, AddBtn, Spinner, Empty, StatTile } from '../components/UI'
 import { DEAL_STATUSES, PAYMENT_TERMS, fmtINR, fmtINRFull, today, daysUntil, calcPaymentDue } from '../lib/constants'
 import { isLive } from '../lib/api'
+import { InvoicePreview, printInvoice as printInvoiceDoc } from '../components/Invoice'
 
 // ── KNOWN AGENCY BILL-TO DETAILS ──────────────────────────────
 const AGENCY_DETAILS = {
@@ -391,17 +392,22 @@ export default function Money({ showToast }) {
     }
   }
 
+  const invDoc = {
+    number: invNum,
+    billTo,
+    item: { ...invForm, amount: invAmt },
+    date: invForm.date,
+    due: invForm.due,
+    gstPct: invGST,
+  }
+
   function printInvoice() {
     if (!invAmt) { showToast('Enter amount first'); return }
+    const slug = (invForm.brand || billTo.company || 'invoice').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
+    printInvoiceDoc(invDoc, `Invoice-${invNum}-${slug}`)
     localStorage.setItem('wiser_next_inv', String(invNum + 1))
     setInvNum(n => n + 1)
-    // Use body class so the print div is always in the DOM — avoids the
-    // non-blocking window.print() race where the div gets removed too early.
-    document.body.classList.add('wiser-print-invoice')
-    window.addEventListener('afterprint', () => {
-      document.body.classList.remove('wiser-print-invoice')
-    }, { once: true })
-    setTimeout(() => window.print(), 150)
+    showToast(`Invoice #${invNum} ready`)
   }
 
   function printTDS() {
@@ -1038,93 +1044,84 @@ export default function Money({ showToast }) {
       </Modal>
 
       {/* ── INVOICE MODAL ────────────────────────────────────── */}
-      <Modal open={modal === 'invoice'} onClose={() => setModal(null)} title={`Invoice #${invNum}`}>
-        {/* Invoice number display */}
-        <div style={{ background: 'var(--lime-bg)', border: '1px solid var(--lime-bd)', borderRadius: 'var(--r)', padding: '8px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 11, color: 'var(--lime-d)', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Invoice Number</div>
-          <div style={{ fontFamily: 'var(--fh)', fontSize: 18, fontWeight: 700, color: 'var(--lime)' }}>#{invNum}</div>
+      <Modal open={modal === 'invoice'} onClose={() => setModal(null)} title="Invoice studio" wide>
+        <div className="inv-studio">
+          <div>
+            <div className="inv-num-chip">
+              <div className="label" style={{ margin: 0, color: 'var(--lime)' }}>Invoice number</div>
+              <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.03em', color: 'var(--lime)' }}>#{invNum}</div>
+            </div>
+            <div className="inv-section">From</div>
+            <Field label="Your Name">
+              <Input value={invForm.name} onChange={e => setInv('name', e.target.value)} />
+            </Field>
+
+                    <div className="inv-section">Bill to</div>
+
+            <Field label="Agency (select to auto-fill)">
+              <Select
+                value={billTo.agency_key}
+                onChange={e => handleAgencySelect(e.target.value)}
+              >
+                <option value="">— Select or type below —</option>
+                {Object.keys(AGENCY_DETAILS).map(k => <option key={k} value={k}>{k}</option>)}
+              </Select>
+            </Field>
+            <Field label="Company Name">
+              <Input value={billTo.company} onChange={e => setBillTo('company', e.target.value)} placeholder="e.g. Sociowash Media Private Limited" />
+            </Field>
+            <Field label="Address">
+              <Input value={billTo.address} onChange={e => setBillTo('address', e.target.value)} placeholder="Full address (optional)" />
+            </Field>
+            <Row2>
+              <Field label="GSTIN/UIN">
+                <Input value={billTo.gstin} onChange={e => setBillTo('gstin', e.target.value)} placeholder="07ABCD1234E1ZX" />
+              </Field>
+              <Field label="PAN">
+                <Input value={billTo.pan} onChange={e => setBillTo('pan', e.target.value)} placeholder="ABCDE1234F" />
+              </Field>
+            </Row2>
+
+                    <div className="inv-section">Line item</div>
+
+            <Field label="Brand">
+              <Input value={invForm.brand} onChange={e => setInv('brand', e.target.value)} placeholder="e.g. Kotak 811" />
+            </Field>
+            <Field label="Deliverables">
+              <Input value={invForm.deliverables} onChange={e => setInv('deliverables', e.target.value)} placeholder="e.g. 1 Collab Reel + 3M Ad Rights" />
+            </Field>
+            <Field label="Campaign Code (if any)">
+              <Input value={invForm.campaign_code} onChange={e => setInv('campaign_code', e.target.value)} placeholder="e.g. 918_Kotak_01" />
+            </Field>
+            <Row2>
+              <Field label="Amount (₹)">
+                <Input type="number" value={invForm.amount} onChange={e => setInv('amount', e.target.value)} placeholder="50000" />
+              </Field>
+              <Field label="GST">
+                <Select value={invForm.gst} onChange={e => setInv('gst', e.target.value)}>
+                  <option value="0">No GST (0%)</option>
+                  <option value="18">18% GST</option>
+                </Select>
+              </Field>
+            </Row2>
+            <Row2>
+              <Field label="Invoice Date">
+                <Input type="date" value={invForm.date} onChange={e => setInv('date', e.target.value)} />
+              </Field>
+              <Field label="Payment Due">
+                <Input type="date" value={invForm.due} onChange={e => setInv('due', e.target.value)} />
+              </Field>
+            </Row2>
+          </div>
+          <div className="inv-preview-wrap">
+            <div className="inv-section">Live preview · A4</div>
+            <InvoicePreview {...invDoc} />
+            <div className="inv-actions">
+              <button className="btn btn-lime" onClick={printInvoice} disabled={!invAmt}>Download PDF · #{invNum}</button>
+              <button className="btn btn-ghost" onClick={() => setModal(null)}>Close</button>
+            </div>
+          </div>
         </div>
-
-        <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 10, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>From</div>
-        <Field label="Your Name">
-          <Input value={invForm.name} onChange={e => setInv('name', e.target.value)} />
-        </Field>
-
-        <div style={{ height: 1, background: 'var(--bd)', margin: '4px 0 14px' }} />
-        <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 10, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Bill To</div>
-
-        <Field label="Agency (select to auto-fill)">
-          <Select
-            value={billTo.agency_key}
-            onChange={e => handleAgencySelect(e.target.value)}
-          >
-            <option value="">— Select or type below —</option>
-            {Object.keys(AGENCY_DETAILS).map(k => <option key={k} value={k}>{k}</option>)}
-          </Select>
-        </Field>
-        <Field label="Company Name">
-          <Input value={billTo.company} onChange={e => setBillTo('company', e.target.value)} placeholder="e.g. Sociowash Media Private Limited" />
-        </Field>
-        <Field label="Address">
-          <Input value={billTo.address} onChange={e => setBillTo('address', e.target.value)} placeholder="Full address (optional)" />
-        </Field>
-        <Row2>
-          <Field label="GSTIN/UIN">
-            <Input value={billTo.gstin} onChange={e => setBillTo('gstin', e.target.value)} placeholder="07ABCD1234E1ZX" />
-          </Field>
-          <Field label="PAN">
-            <Input value={billTo.pan} onChange={e => setBillTo('pan', e.target.value)} placeholder="ABCDE1234F" />
-          </Field>
-        </Row2>
-
-        <div style={{ height: 1, background: 'var(--bd)', margin: '4px 0 14px' }} />
-        <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 10, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Line Item</div>
-
-        <Field label="Brand">
-          <Input value={invForm.brand} onChange={e => setInv('brand', e.target.value)} placeholder="e.g. Kotak 811" />
-        </Field>
-        <Field label="Deliverables">
-          <Input value={invForm.deliverables} onChange={e => setInv('deliverables', e.target.value)} placeholder="e.g. 1 Collab Reel + 3M Ad Rights" />
-        </Field>
-        <Field label="Campaign Code (if any)">
-          <Input value={invForm.campaign_code} onChange={e => setInv('campaign_code', e.target.value)} placeholder="e.g. 918_Kotak_01" />
-        </Field>
-        <Row2>
-          <Field label="Amount (₹)">
-            <Input type="number" value={invForm.amount} onChange={e => setInv('amount', e.target.value)} placeholder="50000" />
-          </Field>
-          <Field label="GST">
-            <Select value={invForm.gst} onChange={e => setInv('gst', e.target.value)}>
-              <option value="0">No GST (0%)</option>
-              <option value="18">18% GST</option>
-            </Select>
-          </Field>
-        </Row2>
-        <Row2>
-          <Field label="Invoice Date">
-            <Input type="date" value={invForm.date} onChange={e => setInv('date', e.target.value)} />
-          </Field>
-          <Field label="Payment Due">
-            <Input type="date" value={invForm.due} onChange={e => setInv('due', e.target.value)} />
-          </Field>
-        </Row2>
-
-        {invAmt > 0 && (
-          <>
-            <div style={{ height: 1, background: 'var(--bd)', margin: '4px 0 14px' }} />
-            <div className="label" style={{ marginBottom: 10 }}>Preview</div>
-            <div className="inv-line"><span>{invForm.deliverables || 'Content creation'}</span><span>₹{fmtINRFull(invAmt)}</span></div>
-            {invGST > 0 && <div className="inv-line"><span>GST {invGST}%</span><span>₹{fmtINRFull(invTax)}</span></div>}
-            <div className="inv-line"><span style={{ color: 'var(--t3)' }}>Tax (0%)</span><span style={{ color: 'var(--t3)' }}>₹0.00</span></div>
-            <div className="inv-total"><span>Total</span><span className="val">₹{fmtINRFull(invTotal)}</span></div>
-            <div style={{ marginTop: 14 }} />
-          </>
-        )}
-
-        <button className="btn btn-lime btn-full" onClick={printInvoice} style={{ marginBottom: 8 }}>
-          📄 Download / Print PDF
-        </button>
-        <button className="btn btn-ghost btn-full" onClick={() => setModal(null)}>Close</button>
       </Modal>
 
       {!isLive && (
@@ -1132,74 +1129,6 @@ export default function Money({ showToast }) {
           Demo mode — data is not saved
         </p>
       )}
-
-      {/* ── PRINT INVOICE (always in DOM, shown only when body has wiser-print-invoice class) ── */}
-      <div className="print-invoice">
-          <div className="pi-header">
-            <div className="pi-from-name">Vidhaan Jain</div>
-            <div className="pi-title-block">
-              <div className="pi-title">INVOICE</div>
-              <div className="pi-num">#{invNum - 1}</div>
-            </div>
-          </div>
-
-          <div className="pi-meta-row">
-            <div className="pi-billto">
-              <div className="pi-meta-label">Bill To:</div>
-              <div className="pi-company">{billTo.company || invForm.agency || invForm.brand}</div>
-              {billTo.address && <div className="pi-addr">{billTo.address}</div>}
-              {billTo.gstin && <div className="pi-gst">GSTIN/UIN: {billTo.gstin}</div>}
-              {billTo.pan && <div className="pi-pan">PAN: {billTo.pan}</div>}
-            </div>
-            <div className="pi-dates">
-              <table className="pi-date-table">
-                <tbody>
-                  <tr><td className="pi-dt-label">Date:</td><td className="pi-dt-val">{invForm.date}</td></tr>
-                  <tr><td className="pi-dt-label">Due Date:</td><td className="pi-dt-val">{invForm.due || '—'}</td></tr>
-                </tbody>
-              </table>
-              <div className="pi-balance-box">
-                <div className="pi-balance-label">Balance Due:</div>
-                <div className="pi-balance-val">₹{fmtINRFull(invTotal || invAmt)}</div>
-              </div>
-            </div>
-          </div>
-
-          <table className="pi-items-table">
-            <thead>
-              <tr>
-                <th className="pi-th-item">Item</th>
-                <th className="pi-th">Quantity</th>
-                <th className="pi-th">Rate</th>
-                <th className="pi-th">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="pi-td-item">
-                  <strong>{invForm.campaign_code ? `${invForm.campaign_code} — ` : ''}{invForm.deliverables || 'Content creation'}</strong>
-                </td>
-                <td className="pi-td">1</td>
-                <td className="pi-td">₹{fmtINRFull(invAmt)}</td>
-                <td className="pi-td">₹{fmtINRFull(invAmt)}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div className="pi-totals">
-            <div className="pi-total-row"><span>Subtotal:</span><span>₹{fmtINRFull(invAmt)}</span></div>
-            <div className="pi-total-row"><span>Tax ({invGST}%):</span><span>₹{fmtINRFull(invTax)}</span></div>
-            <div className="pi-total-row pi-grand"><span>Total:</span><span>₹{fmtINRFull(invTotal)}</span></div>
-          </div>
-
-          <div className="pi-notes">
-            <div className="pi-notes-label">Notes:</div>
-            <div className="pi-payment-header">Payment Details:</div>
-            <div>Bank Details:</div>
-            <div>Bank Name - SBI</div>
-            <div>A/C Name - Vidhaan Jain &nbsp;&nbsp;&nbsp; A/c number - 34074199631 &nbsp;&nbsp;&nbsp; IFSC Code - SBIN0016842 &nbsp;&nbsp;&nbsp; PAN - BETPJ2184N</div>
-          </div>
-        </div>
 
       {/* ── PRINT TDS LEDGER (always in DOM, shown only when body has wiser-print-tds class) ── */}
       <div className="print-tds">

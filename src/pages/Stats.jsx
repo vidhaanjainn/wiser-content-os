@@ -134,7 +134,7 @@ export default function Stats({ showToast }) {
           </div>
           <div style={{ height: 1, background: 'var(--bd)', margin: '12px 0' }} />
           <div style={{ fontSize: 12, color: 'var(--t2)' }}>
-            ₹{fmtINRFull(calls * 999)} consultation revenue
+            {fmtINRFull(calls * 999)} consultation revenue
           </div>
         </div>
       </Card>

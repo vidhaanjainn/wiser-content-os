@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
-export function Modal({ open, onClose, title, children }) {
+export function Modal({ open, onClose, title, children, wide }) {
   // Lock body scroll when open
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
@@ -16,9 +17,10 @@ export function Modal({ open, onClose, title, children }) {
 
   if (!open) return null
 
-  return (
+  // Portal to <body> so page/card transforms never trap the fixed overlay
+  return createPortal(
     <div className="modal-overlay open" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal-sheet${wide ? ' wide' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-handle" />
         <div className="modal-header">
           <h3 className="modal-title" style={{ margin: 0 }}>{title}</h3>
@@ -26,7 +28,8 @@ export function Modal({ open, onClose, title, children }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -42,6 +45,10 @@ export function Field({ label, children }) {
 
 export function Input({ ...props }) {
   return <input className="form-input" {...props} />
+}
+
+export function Textarea({ ...props }) {
+  return <textarea className="form-input" {...props} />
 }
 
 export function Select({ children, ...props }) {
