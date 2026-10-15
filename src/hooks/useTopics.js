@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase, isLive } from '../lib/supabase'
+import { api, isLive } from '../lib/api'
 import { DEMO_TOPICS } from '../lib/demo'
 
 export function useTopics() {
@@ -9,11 +9,7 @@ export function useTopics() {
   useEffect(() => {
     async function load() {
       if (!isLive) { setTopics(DEMO_TOPICS); setLoading(false); return }
-      const { data, error } = await supabase
-        .from('topics')
-        .select('*')
-        .order('sort_order')
-      if (!error) setTopics(data || [])
+      try { setTopics(await api.list('topics') || []) } catch (e) { console.error(e) }
       setLoading(false)
     }
     load()
@@ -26,23 +22,24 @@ export function useTopics() {
       setTopics(prev => [...prev, t])
       return t
     }
-    const { data, error } = await supabase.from('topics').insert(withOrder).select().single()
-    if (!error) setTopics(prev => [...prev, data])
-    return data
+    try {
+      const data = await api.create('topics', withOrder)
+      setTopics(prev => [...prev, data])
+      return data
+    } catch (e) { console.error(e) }
   }, [topics.length])
 
   const updateTopic = useCallback(async (id, updates) => {
-    if (!isLive) {
-      setTopics(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
-      return
+    if (isLive) {
+      try { await api.update('topics', id, updates) } catch (e) { console.error(e); return }
     }
-    const { error } = await supabase.from('topics').update(updates).eq('id', id)
-    if (!error) setTopics(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+    setTopics(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
   }, [])
 
   const deleteTopic = useCallback(async (id) => {
-    if (!isLive) { setTopics(prev => prev.filter(t => t.id !== id)); return }
-    await supabase.from('topics').delete().eq('id', id)
+    if (isLive) {
+      try { await api.remove('topics', id) } catch (e) { console.error(e); return }
+    }
     setTopics(prev => prev.filter(t => t.id !== id))
   }, [])
 

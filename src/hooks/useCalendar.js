@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase, isLive } from '../lib/supabase'
+import { api, isLive } from '../lib/api'
 import { DEMO_CAL } from '../lib/demo'
 
 export function useCalendar() {
@@ -9,11 +9,7 @@ export function useCalendar() {
   useEffect(() => {
     async function load() {
       if (!isLive) { setItems(DEMO_CAL); setLoading(false); return }
-      const { data, error } = await supabase
-        .from('calendar_items')
-        .select('*')
-        .order('item_date')
-      if (!error) setItems(data || [])
+      try { setItems(await api.list('calendar') || []) } catch (e) { console.error(e) }
       setLoading(false)
     }
     load()
@@ -25,14 +21,17 @@ export function useCalendar() {
       setItems(prev => [...prev, it])
       return it
     }
-    const { data, error } = await supabase.from('calendar_items').insert(item).select().single()
-    if (!error) setItems(prev => [...prev, data])
-    return data
+    try {
+      const data = await api.create('calendar', item)
+      setItems(prev => [...prev, data])
+      return data
+    } catch (e) { console.error(e) }
   }, [])
 
   const deleteItem = useCallback(async (id) => {
-    if (!isLive) { setItems(prev => prev.filter(i => i.id !== id)); return }
-    await supabase.from('calendar_items').delete().eq('id', id)
+    if (isLive) {
+      try { await api.remove('calendar', id) } catch (e) { console.error(e); return }
+    }
     setItems(prev => prev.filter(i => i.id !== id))
   }, [])
 

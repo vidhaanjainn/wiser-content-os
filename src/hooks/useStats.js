@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase, isLive } from '../lib/supabase'
+import { api, isLive } from '../lib/api'
 import { DEMO_STATS } from '../lib/demo'
 
 export function useStats() {
@@ -9,12 +9,7 @@ export function useStats() {
   useEffect(() => {
     async function load() {
       if (!isLive) { setStats(DEMO_STATS); setLoading(false); return }
-      const { data, error } = await supabase
-        .from('perf_stats')
-        .select('*')
-        .order('stat_date', { ascending: false })
-        .limit(10)
-      if (!error) setStats(data || [])
+      try { setStats(await api.list('stats') || []) } catch (e) { console.error(e) }
       setLoading(false)
     }
     load()
@@ -30,13 +25,10 @@ export function useStats() {
       })
       return
     }
-    await supabase.from('perf_stats').upsert(entry, { onConflict: 'stat_date' })
-    const { data } = await supabase
-      .from('perf_stats')
-      .select('*')
-      .order('stat_date', { ascending: false })
-      .limit(10)
-    if (data) setStats(data)
+    try {
+      await api.create('stats', entry) // server upserts on stat_date
+      setStats(await api.list('stats') || [])
+    } catch (e) { console.error(e) }
   }, [])
 
   return { stats, loading, upsertStat }

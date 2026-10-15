@@ -4,7 +4,7 @@ import Calendar from './pages/Calendar'
 import Topics from './pages/Topics'
 import Stats from './pages/Stats'
 import AI from './pages/AI'
-import { isLive } from './lib/supabase'
+import { isLive } from './lib/api'
 
 const TABS = [
   {
