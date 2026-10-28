@@ -30,9 +30,10 @@ export function useCalendar() {
 
   const deleteItem = useCallback(async (id) => {
     if (isLive) {
-      try { await api.remove('calendar', id) } catch (e) { console.error(e); return }
+      try { await api.remove('calendar', id) } catch (e) { console.error(e); return false }
     }
     setItems(prev => prev.filter(i => i.id !== id))
+    return true
   }, [])
 
   return { items, loading, addItem, deleteItem }

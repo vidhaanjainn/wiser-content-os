@@ -43,7 +43,7 @@ export default function Calendar({ showToast }) {
 
   async function handleSave() {
     if (!form.title.trim() || !form.date) { showToast('Title and date required'); return }
-    await addItem({ title: form.title.trim(), item_date: form.date, type: form.type })
+    if (!await addItem({ title: form.title.trim(), item_date: form.date, type: form.type })) { showToast('Could not save. Check your connection.'); return }
     setModal(false)
     showToast('Added to calendar')
   }
@@ -105,7 +105,7 @@ export default function Calendar({ showToast }) {
                         onClick={(e) => {
                           e.stopPropagation()
                           if (window.confirm(`Delete "${it.title}"?`)) {
-                            deleteItem(it.id).then(() => showToast('Deleted'))
+                            deleteItem(it.id).then(ok => showToast(ok ? 'Deleted' : 'Could not delete. Check your connection.'))
                           }
                         }}
                       >

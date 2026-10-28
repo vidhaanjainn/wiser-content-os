@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { sql, pushAll, unreadCount } from './_lib.js'
 
 // Called by the Mac-side tools (tools/wiser_push.py) with a bearer token.
-//   { sections: { stats: {...}, menu: {...}, ... }, events: [{ key, kind, urgency, title, body, url, source }] }
+//   { sections: { stats: {...}, menu: {...}, ... }, docs: [{ key, title, kind, code, series, status, body, hash }], events: [{ key, kind, urgency, title, body, url, source }] }
 // Sections replace the dashboard snapshot for that key. Events go to the feed; each NEW event (by key) is pushed to every device.
 function authed(req) {
   const want = Buffer.from(process.env.WISER_INGEST_TOKEN || '')
@@ -15,8 +15,20 @@ export default async function handler(req, res) {
   if (!authed(req)) return res.status(401).json({ error: 'Unauthorized' })
 
   try {
-    const { sections = {}, events = [] } = req.body || {}
-    const out = { sections: 0, events: 0, pushed: 0, skipped: 0 }
+    const { sections = {}, events = [], docs = [] } = req.body || {}
+    const out = { sections: 0, events: 0, pushed: 0, skipped: 0, docs: 0 }
+
+    for (const d of docs) {
+      if (!d?.key || !d.title) continue
+      await sql().query(
+        `insert into content_docs (key, title, kind, code, series, status, body, hash, updated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+         on conflict (key) do update set title = excluded.title, kind = excluded.kind, code = excluded.code,
+           series = excluded.series, status = excluded.status, body = excluded.body, hash = excluded.hash, updated_at = now()`,
+        [d.key, d.title, d.kind || 'doc', d.code || null, d.series || null, d.status || null, String(d.body || '').slice(0, 150000), d.hash || null],
+      )
+      out.docs++
+    }
 
     for (const [key, data] of Object.entries(sections)) {
       await sql().query(

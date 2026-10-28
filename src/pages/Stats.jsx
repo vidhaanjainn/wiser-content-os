@@ -48,7 +48,7 @@ export default function Stats({ showToast }) {
       wisermoney_profiles: parseInt(form.wisermoney_profiles) || null,
       wisermoney_calls:    parseInt(form.wisermoney_calls)    || null,
     }
-    await upsertStat(entry)
+    if (!await upsertStat(entry)) { showToast('Could not save. Check your connection.'); return }
     setModal(false)
     showToast('Stats saved')
   }

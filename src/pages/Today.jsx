@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useContent } from '../hooks/useContent'
 import { Card, SectionHeader, Badge, Btn, Spinner, Empty } from '../components/UI'
+import DocSheet from '../components/DocSheet'
 import { pushState, enablePush, disablePush, testPush } from '../lib/push'
 
 const ago = iso => {
@@ -51,16 +52,16 @@ function Notify({ showToast }) {
   )
 }
 
-function Picks({ snap }) {
+function Picks({ snap, onOpen }) {
   const d = snap?.data
   return (
     <>
       <SectionHeader title="Today's picks" action={<Stamp snap={snap} />} />
       {!d?.picks?.length ? <Missing text="No menu yet — it lands with the daily script menu." /> : (
         <Card className="card-pad">
-          {d.date && <div className="today-sub" style={{ marginBottom: 10 }}>Menu {d.date}{d.total ? ` · ${d.total} candidates` : ''}</div>}
+          {d.date && <div className="today-row" style={{ marginBottom: 10 }}><span className="today-sub">Menu {d.date}{d.total ? ` · ${d.total} candidates` : ''} · tap a pick for the full script</span><Btn size="sm" variant="ghost" onClick={() => onOpen('menu:today')}>Full menu</Btn></div>}
           {d.picks.map((p, i) => (
-            <div key={p.code || i} className="today-item">
+            <div key={p.code || i} className="today-item today-tap" onClick={() => onOpen(`menu:${p.code}`)}>
               <div className="today-row"><b>{p.code} · {p.title}</b><Badge type="lime">{p.score ?? '–'}/10</Badge></div>
               <div className="today-sub">{p.format}{p.ready ? ` · ${p.ready}` : ''}</div>
               {p.hook && <div className="today-hook">“{p.hook}”</div>}
@@ -218,25 +219,32 @@ function Feed({ feed, markRead }) {
 
 export default function Today({ showToast }) {
   const { snapshots: s, feed, loading, error, markRead } = useContent()
+  const [sheet, setSheet] = useState(null)   // null | { key } (one doc) | { key: null } (library)
   if (loading) return <div className="scroll-area"><Spinner /></div>
   const urgent = feed.filter(f => f.urgency === 'urgent' && !f.read)
   return (
     <div className="scroll-area page-enter">
       {error && <div className="today-missing">Can’t reach the server — showing the last data.</div>}
       <Notify showToast={showToast} />
+      <div className="today-lib">
+        <Btn onClick={() => setSheet({ key: null })}>📚 Scripts &amp; docs</Btn>
+        <Btn variant="ghost" onClick={() => setSheet({ key: 'report:double-down' })}>Double-down report</Btn>
+        <Btn variant="ghost" onClick={() => setSheet({ key: 'menu:today' })}>Today's menu</Btn>
+      </div>
       {urgent.length > 0 && (
         <Card className="card-pad today-urgent">
           <div className="label" style={{ color: 'var(--red)' }}>Needs attention</div>
           {urgent.map(u => <div key={u.id} className="today-item" onClick={() => markRead(u.id)}><b>{u.title}</b>{u.body && <div className="today-sub">{u.body}</div>}</div>)}
         </Card>
       )}
-      <Picks snap={s.menu} />
+      <Picks snap={s.menu} onOpen={key => setSheet({ key })} />
       <Reels snap={s.stats} />
       <Queue snap={s.queue} />
       <Radar snap={s.radar} />
       <Inbox snap={s.inbox} />
       <Health snap={s.health} />
       <Feed feed={feed} markRead={markRead} />
+      {sheet && <DocSheet docKey={sheet.key} onClose={() => setSheet(null)} showToast={showToast} />}
     </div>
   )
 }

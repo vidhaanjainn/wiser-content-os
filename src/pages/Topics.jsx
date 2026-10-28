@@ -15,7 +15,8 @@ export default function Topics({ showToast }) {
 
   async function handleAdd() {
     if (!form.title.trim()) { showToast('Title required'); return }
-    await addTopic({ title: form.title.trim(), category: form.category, stage: form.stage, hook: form.hook || null, notes: form.notes || null })
+    const added = await addTopic({ title: form.title.trim(), category: form.category, stage: form.stage, hook: form.hook || null, notes: form.notes || null })
+    if (!added) { showToast('Could not save. Check your connection.'); return }
     setModal(false)
     setForm({ title: '', category: 'finance', stage: 'ideas', hook: '', notes: '' })
     showToast('Topic added')
@@ -31,7 +32,7 @@ export default function Topics({ showToast }) {
     const nextIdx = direction === 'forward' ? idx + 1 : idx - 1
     if (nextIdx < 0 || nextIdx >= STAGES.length) return
     const nextStage = STAGES[nextIdx]
-    await updateTopic(topic.id, { stage: nextStage })
+    if (!await updateTopic(topic.id, { stage: nextStage })) { showToast('Could not save. Check your connection.'); return }
     showToast(`Moved to ${STAGE_LABELS[nextStage]}`)
     setEditModal(false)
   }
@@ -39,7 +40,7 @@ export default function Topics({ showToast }) {
   async function handleDelete() {
     if (!selected) return
     if (!window.confirm(`Delete "${selected.title}"?`)) return
-    await deleteTopic(selected.id)
+    if (!await deleteTopic(selected.id)) { showToast('Could not delete. Check your connection.'); return }
     setEditModal(false)
     showToast('Deleted')
   }

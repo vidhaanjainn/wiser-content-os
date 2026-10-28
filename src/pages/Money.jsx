@@ -208,13 +208,14 @@ export default function Money({ showToast }) {
     if (!glForm.go_live_date) { showToast('Go-live date required'); return }
     const payDays = parseInt(glForm.payment_days)
     const dueDate = calcPaymentDue(glForm.go_live_date, payDays)
-    await updateDeal(glForm.id, {
+    const ok = await updateDeal(glForm.id, {
       go_live_date: glForm.go_live_date,
       go_live_link: glForm.go_live_link || null,
       payment_days: payDays,
       status: 'pending',
       due_date: dueDate,
     })
+    if (!ok) { showToast('Could not save. Check your connection.'); return }
     showToast('Marked live! Open Invoice to send.')
     setModal(null)
     const deal = deals.find(d => d.id === glForm.id)
@@ -301,7 +302,7 @@ export default function Money({ showToast }) {
 
   async function handleDelete() {
     if (!editId || !window.confirm('Delete this deal?')) return
-    await deleteDeal(editId)
+    if (!await deleteDeal(editId)) { showToast('Could not delete. Check your connection.'); return }
     setModal(null)
     showToast('Deleted')
   }
@@ -370,7 +371,7 @@ export default function Money({ showToast }) {
       payment_days: parseInt(parsedDeal.payment_days) || 30,
       notes:        parsedDeal.notes || null,
     }
-    await addDeal(payload)
+    if (!await addDeal(payload)) { showToast('Could not save. Check your connection.'); return }
     setParsedDeal(null)
     setEmailText('')
     setModal(null)
@@ -756,7 +757,7 @@ export default function Money({ showToast }) {
                   }}
                   onClick={() => {
                     const next = d.tds_ais_status === 'unchecked' ? 'confirmed' : d.tds_ais_status === 'confirmed' ? 'missing' : 'unchecked'
-                    updateDeal(d.id, { tds_ais_status: next })
+                    updateDeal(d.id, { tds_ais_status: next }).then(ok => { if (!ok) showToast('Could not save. Check your connection.') })
                   }}
                 >
                   {d.tds_ais_status === 'confirmed' ? '✓ In AIS' : d.tds_ais_status === 'missing' ? '✗ Missing' : '? Check AIS'}
@@ -1058,7 +1059,7 @@ export default function Money({ showToast }) {
                 className="btn btn-full"
                 style={{ gridColumn: '1 / -1', background: 'var(--red-bg)', color: 'var(--red)', borderColor: 'var(--red-bd)', fontWeight: 600 }}
                 onClick={async () => {
-                  await updateDeal(editId, { status: 'pending', paid_at: null, amount_received: null })
+                  if (!await updateDeal(editId, { status: 'pending', paid_at: null, amount_received: null })) { showToast('Could not save. Check your connection.'); return }
                   showToast('Marked as unpaid')
                   set('status', 'pending')
                 }}

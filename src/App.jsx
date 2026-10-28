@@ -216,6 +216,11 @@ export default function App() {
     if (!isLive) return
     fetch('/api/login').then(r => r.json()).then(j => setAuthed(!!j.authed)).catch(() => setAuthed(false))
   }, [])
+  useEffect(() => {
+    const out = () => setAuthed(false)
+    window.addEventListener('wiser:unauth', out)
+    return () => window.removeEventListener('wiser:unauth', out)
+  }, [])
   if (authed === null) return null
   if (!authed) return <Login onDone={() => setAuthed(true)} />
   return <Shell />

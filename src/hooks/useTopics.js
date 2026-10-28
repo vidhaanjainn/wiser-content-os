@@ -31,16 +31,18 @@ export function useTopics() {
 
   const updateTopic = useCallback(async (id, updates) => {
     if (isLive) {
-      try { await api.update('topics', id, updates) } catch (e) { console.error(e); return }
+      try { await api.update('topics', id, updates) } catch (e) { console.error(e); return false }
     }
     setTopics(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+    return true
   }, [])
 
   const deleteTopic = useCallback(async (id) => {
     if (isLive) {
-      try { await api.remove('topics', id) } catch (e) { console.error(e); return }
+      try { await api.remove('topics', id) } catch (e) { console.error(e); return false }
     }
     setTopics(prev => prev.filter(t => t.id !== id))
+    return true
   }, [])
 
   return { topics, loading, addTopic, updateTopic, deleteTopic }

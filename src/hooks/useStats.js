@@ -23,12 +23,13 @@ export function useStats() {
           .sort((a, b) => b.stat_date.localeCompare(a.stat_date))
           .slice(0, 10)
       })
-      return
+      return true
     }
     try {
       await api.create('stats', entry) // server upserts on stat_date
       setStats(await api.list('stats') || [])
-    } catch (e) { console.error(e) }
+      return true
+    } catch (e) { console.error(e); return false }
   }, [])
 
   return { stats, loading, upsertStat }

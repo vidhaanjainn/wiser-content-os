@@ -37,9 +37,10 @@ export function useDeals() {
 
   const deleteDeal = useCallback(async (id) => {
     if (isLive) {
-      try { await api.remove('deals', id) } catch (e) { console.error(e); return }
+      try { await api.remove('deals', id) } catch (e) { console.error(e); return false }
     }
     setDeals(prev => prev.filter(d => d.id !== id))
+    return true
   }, [])
 
   return { deals, loading, addDeal, updateDeal, deleteDeal, reload: load }

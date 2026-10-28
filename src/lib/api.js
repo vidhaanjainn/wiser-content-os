@@ -9,6 +9,7 @@ async function call(path, method = 'GET', body) {
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   })
+  if (res.status === 401) window.dispatchEvent(new Event('wiser:unauth'))
   if (!res.ok) throw new Error(`${method} ${path} failed (${res.status})`)
   return res.json()
 }
