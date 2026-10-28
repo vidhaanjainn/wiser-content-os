@@ -4,9 +4,20 @@ import Calendar from './pages/Calendar'
 import Topics from './pages/Topics'
 import Stats from './pages/Stats'
 import AI from './pages/AI'
+import Today from './pages/Today'
 import { isLive } from './lib/api'
 
 const TABS = [
+  {
+    key: 'today',
+    label: 'Today',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9"/>
+        <path d="M10.3 21a1.94 1.94 0 003.4 0"/>
+      </svg>
+    ),
+  },
   {
     key: 'money',
     label: 'Money',
@@ -61,6 +72,7 @@ const TABS = [
 ]
 
 const TITLES = {
+  today:    ['Content', 'today'],
   money:    ['Your', 'money'],
   calendar: ['Content', 'calendar'],
   topics:   ['Topic', 'pipeline'],
@@ -120,6 +132,12 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
 
+  useEffect(() => {
+    const fn = e => e.data?.type === 'open-content' && go('today')
+    navigator.serviceWorker?.addEventListener('message', fn)
+    return () => navigator.serviceWorker?.removeEventListener('message', fn)
+  }, [go])
+
   const showToast = useCallback((msg) => {
     setToast({ msg, show: true })
     clearTimeout(toastTimer.current)
@@ -129,6 +147,7 @@ export default function App() {
   const renderPage = () => {
     const props = { showToast }
     switch (activeTab) {
+      case 'today':    return <Today    {...props} />
       case 'money':    return <Money    {...props} />
       case 'calendar': return <Calendar {...props} />
       case 'topics':   return <Topics   {...props} />
