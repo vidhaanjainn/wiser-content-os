@@ -787,3 +787,16 @@ textarea.form-input { resize: vertical; min-height: 90px; line-height: 1.5; }
 .today-notify { margin-bottom: 4px; }
 .today-urgent { border-color: var(--red-bd); background: var(--red-bg); margin-top: 12px; }
 .section-hd + .grid3, .section-hd + .card { margin-top: 0; }
+
+/* ── LOGIN ─────────────────────────────────────────────────── */
+.login { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; background: var(--bg); }
+.login-mark { width: 54px; height: 54px; border-radius: 16px; background: var(--lime); color: #0b0c0f; display: grid; place-items: center; font: 700 34px Georgia, serif; }
+.login-title { font-size: 18px; font-weight: 600; }
+.login-dots { display: flex; gap: 14px; margin: 4px 0; }
+.login-dots i { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--bd3); transition: all .15s; }
+.login-dots i.on { background: var(--lime); border-color: var(--lime); }
+.login-msg { color: var(--red); font-size: 13px; height: 18px; }
+.login-pad { display: grid; grid-template-columns: repeat(3, 76px); gap: 12px; }
+.login-pad button { height: 64px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--bd2); color: var(--t1); font-size: 24px; cursor: pointer; }
+.login-pad button:active { background: var(--bg5); transform: scale(.95); }
+.login-pad button:disabled { opacity: .5; }

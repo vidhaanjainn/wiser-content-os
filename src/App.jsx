@@ -5,6 +5,7 @@ import Topics from './pages/Topics'
 import Stats from './pages/Stats'
 import AI from './pages/AI'
 import Today from './pages/Today'
+import Login from './components/Login'
 import { isLive } from './lib/api'
 
 const TABS = [
@@ -119,12 +120,11 @@ function useBootScreen() {
   }, [])
 }
 
-export default function App() {
+function Shell() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('wiser_tab') || 'money')
   const [toast, setToast] = useState({ msg: '', show: false })
   const toastTimer = useRef(null)
   const desktop = useDesktop()
-  useBootScreen()
 
   const go = useCallback((key) => {
     setActiveTab(key)
@@ -206,4 +206,17 @@ export default function App() {
       <div className={`toast${toast.show ? ' show' : ''}`} role="status">{toast.msg}</div>
     </>
   )
+}
+
+// PIN gate: the API answers 401 until the session cookie is set (demo mode skips it).
+export default function App() {
+  const [authed, setAuthed] = useState(isLive ? null : true)
+  useBootScreen()
+  useEffect(() => {
+    if (!isLive) return
+    fetch('/api/login').then(r => r.json()).then(j => setAuthed(!!j.authed)).catch(() => setAuthed(false))
+  }, [])
+  if (authed === null) return null
+  if (!authed) return <Login onDone={() => setAuthed(true)} />
+  return <Shell />
 }

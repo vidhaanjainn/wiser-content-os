@@ -1,7 +1,8 @@
-import { sql, unreadCount } from './_lib.js'
+import { sql, unreadCount, requireAuth } from './_lib.js'
 
 // Dashboard feed for the Content page: latest snapshot per section + recent notifications.
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return
   try {
     if (req.method === 'GET') {
       const snaps = await sql().query('select key, data, updated_at from content_snapshots')

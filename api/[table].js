@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless'
+import { requireAuth } from './_lib.js'
 
 // One serverless function for all four tables: /api/deals, /api/topics, /api/calendar, /api/stats
 const TABLES = {
@@ -40,6 +41,7 @@ function pick(body, cols) {
 }
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return
   const cfg = TABLES[req.query.table]
   if (!cfg) return res.status(404).json({ error: 'Unknown resource' })
 

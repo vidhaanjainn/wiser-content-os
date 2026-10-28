@@ -1,7 +1,8 @@
-import { sql, pushAll, unreadCount } from './_lib.js'
+import { sql, pushAll, unreadCount, requireAuth } from './_lib.js'
 
 // Device side of web push: public key, subscribe, unsubscribe, and a test push to the caller's own device.
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return
   try {
     if (req.method === 'GET') {
       return res.status(200).json({ publicKey: process.env.VAPID_PUBLIC_KEY || null })
