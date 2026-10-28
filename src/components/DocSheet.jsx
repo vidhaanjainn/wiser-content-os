@@ -3,10 +3,21 @@ import { Markdown } from '../lib/md'
 import { Badge } from './UI'
 
 // Full-screen sheet: opens a document directly (docKey), or the searchable library. Bodies load only when tapped.
-const FILTERS = [
-  ['all', 'All'], ['to record', 'To record'], ['recorded', 'Recorded'], ['idea', 'Ideas'],
-  ['bank', 'Banks'], ['doc', 'Docs'], ['report', 'Reports'],
-]
+const STATUS = [['to record', 'To record'], ['recorded', 'Recorded'], ['idea', 'Ideas'], ['all', 'All']]
+const TOPIC_ORDER = ['Luck', 'Mysteries', 'Old Wisdom', 'Book Rules', 'This Week', 'Daily menu', 'Banks', 'Docs', 'Reports']
+// Which tab a document lives under: scripts by series, everything else by kind
+function topicOf(d) {
+  if (d.kind === 'bank') return 'Banks'
+  if (d.kind === 'doc') return 'Docs'
+  if (d.kind === 'report') return 'Reports'
+  const s = d.series || ''
+  if (s.startsWith('Luck')) return 'Luck'
+  if (s.startsWith('Manageable')) return 'Mysteries'
+  if (s.startsWith('Old Wisdom')) return 'Old Wisdom'
+  if (s.startsWith('Book Rules')) return 'Book Rules'
+  if (s.startsWith('Menu')) return 'Daily menu'
+  return s || 'Other'
+}
 const STATUS_BADGE = { 'to record': 'amber', recorded: 'green', idea: 'blue', menu: 'lime' }
 
 export default function DocSheet({ docKey, onClose, showToast }) {
@@ -15,6 +26,7 @@ export default function DocSheet({ docKey, onClose, showToast }) {
   const [doc, setDoc] = useState(null)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('to record')
+  const [topic, setTopic] = useState('all')
   const fromLibrary = useMemo(() => !docKey, [docKey])
 
   useEffect(() => {
@@ -31,14 +43,22 @@ export default function DocSheet({ docKey, onClose, showToast }) {
     return () => { live = false }
   }, [open])
 
+  const tabs = useMemo(() => {
+    const n = {}
+    ;(list || []).forEach(d => { const k = topicOf(d); n[k] = (n[k] || 0) + 1 })
+    const keys = [...TOPIC_ORDER.filter(k => n[k]), ...Object.keys(n).filter(k => !TOPIC_ORDER.includes(k))]
+    return [['all', 'All', (list || []).length], ...keys.map(k => [k, k, n[k]])]
+  }, [list])
+
   const shown = useMemo(() => {
     if (!list) return []
     const s = q.trim().toLowerCase()
     return list.filter(d => {
-      const f = filter === 'all' || d.status === filter || d.kind === filter
-      return f && (!s || `${d.code || ''} ${d.title} ${d.series || ''}`.toLowerCase().includes(s))
+      const byTopic = topic === 'all' || topicOf(d) === topic
+      const byStatus = filter === 'all' || !['to record', 'recorded', 'idea'].includes(d.status) || d.status === filter
+      return byTopic && byStatus && (!s || `${d.code || ''} ${d.title} ${d.series || ''}`.toLowerCase().includes(s))
     })
-  }, [list, q, filter])
+  }, [list, q, filter, topic])
 
   async function copy() {
     try { await navigator.clipboard.writeText(doc?.body || ''); showToast?.('Copied') } catch { showToast?.('Copy failed') }
@@ -62,7 +82,10 @@ export default function DocSheet({ docKey, onClose, showToast }) {
         <div className="sheet-body">
           <input className="sheet-search" placeholder="Search scripts, codes, docs…" value={q} onChange={e => setQ(e.target.value)} />
           <div className="sheet-chips">
-            {FILTERS.map(([k, label]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{label}</button>)}
+            {tabs.map(([k, label, n]) => <button key={k} className={topic === k ? 'on' : ''} onClick={() => setTopic(k)}>{label} {n}</button>)}
+          </div>
+          <div className="sheet-chips">
+            {STATUS.map(([k, label]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{label}</button>)}
           </div>
           {!list ? <div className="today-missing">Loading…</div> : !shown.length ? <div className="today-missing">Nothing here{list.length ? '' : ' yet — docs sync with the next morning push.'}</div> : shown.map(d => (
             <button key={d.key} className="sheet-row" onClick={() => setOpen(d.key)}>
