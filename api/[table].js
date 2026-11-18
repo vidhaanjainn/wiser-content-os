@@ -16,6 +16,11 @@ const sql = () => (_sql ??= neon(process.env.DATABASE_URL))
 // ('YYYY-MM-DD' strings and JSON numbers).
 const colCache = {}
 async function columns(table) {
+  // Self-migrate: topics gained local-video path columns
+  if (table === 'topics' && !colCache.topics) {
+    await sql().query('alter table topics add column if not exists video_mac text')
+    await sql().query('alter table topics add column if not exists video_pc text')
+  }
   colCache[table] ??= await sql().query(
     `select column_name, data_type from information_schema.columns
      where table_schema = 'public' and table_name = $1 order by ordinal_position`,
