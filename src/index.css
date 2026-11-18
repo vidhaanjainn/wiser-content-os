@@ -388,6 +388,9 @@ body::before {
 }
 .topic-card:hover { border-color: var(--bd3); transform: translateY(-2px); box-shadow: 0 10px 24px -12px rgba(0,0,0,0.8); }
 .topic-card:active { transform: scale(0.98); }
+.open-btns { display: flex; gap: 6px; margin-top: 9px; }
+.open-btn { flex: 1; font-family: var(--fm); font-size: 10.5px; font-weight: 500; padding: 6px 0; border-radius: var(--r-pill); border: 1px solid var(--bd3); background: var(--bg4); color: var(--lime); cursor: pointer; }
+.open-btn:active { transform: scale(0.95); }
 .topic-card-title { font-size: 13px; font-weight: 500; line-height: 1.4; letter-spacing: -0.01em; margin-bottom: 9px; }
 
 /* ── PERF BARS / FUNNEL / PROGRESS ───────────────────────── */

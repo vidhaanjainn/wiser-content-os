@@ -37,9 +37,13 @@ create table if not exists topics (
   notes       text,
   sort_order  integer default 0,
   posted_date date,
+  video_mac   text,
+  video_pc    text,
   created_at  timestamptz default now(),
   updated_at  timestamptz default now()
 );
+alter table topics add column if not exists video_mac text;
+alter table topics add column if not exists video_pc  text;
 
 -- CALENDAR ITEMS
 create table if not exists calendar_items (

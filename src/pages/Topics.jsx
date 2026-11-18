@@ -3,21 +3,39 @@ import { useTopics } from '../hooks/useTopics'
 import { Modal, Field, Input, Select, Row2 } from '../components/Modal'
 import { AddBtn, Spinner, Empty } from '../components/UI'
 import { CATEGORIES, STAGES, STAGE_LABELS } from '../lib/constants'
+import { openLocal } from '../lib/openLocal'
+
+const EMPTY = { title: '', category: 'finance', stage: 'ideas', hook: '', notes: '', video_mac: '', video_pc: '' }
+
+function OpenBtns({ t, showToast }) {
+  if (!t.video_mac && !t.video_pc) return null
+  const go = (e, path, label) => {
+    e.stopPropagation()
+    openLocal(path)
+    showToast(`Opening on ${label}…`)
+  }
+  return (
+    <div className="open-btns">
+      {t.video_mac && <button className="open-btn" onClick={e => go(e, t.video_mac, 'Mac')}>▶ Mac</button>}
+      {t.video_pc && <button className="open-btn" onClick={e => go(e, t.video_pc, 'PC')}>▶ PC</button>}
+    </div>
+  )
+}
 
 export default function Topics({ showToast }) {
   const { topics, loading, addTopic, updateTopic, deleteTopic } = useTopics()
   const [modal, setModal] = useState(false)
   const [editModal, setEditModal] = useState(false)
   const [selected, setSelected] = useState(null)
-  const [form, setForm] = useState({ title: '', category: 'finance', stage: 'ideas', hook: '', notes: '' })
+  const [form, setForm] = useState(EMPTY)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   async function handleAdd() {
     if (!form.title.trim()) { showToast('Title required'); return }
-    await addTopic({ title: form.title.trim(), category: form.category, stage: form.stage, hook: form.hook || null, notes: form.notes || null })
+    await addTopic({ title: form.title.trim(), category: form.category, stage: form.stage, hook: form.hook || null, notes: form.notes || null, video_mac: form.video_mac.trim() || null, video_pc: form.video_pc.trim() || null })
     setModal(false)
-    setForm({ title: '', category: 'finance', stage: 'ideas', hook: '', notes: '' })
+    setForm(EMPTY)
     showToast('Topic added')
   }
 
@@ -34,6 +52,14 @@ export default function Topics({ showToast }) {
     await updateTopic(topic.id, { stage: nextStage })
     showToast(`Moved to ${STAGE_LABELS[nextStage]}`)
     setEditModal(false)
+  }
+
+  async function saveVideo(key, val) {
+    const v = val.trim() || null
+    if (v === (selected[key] || null)) return
+    await updateTopic(selected.id, { [key]: v })
+    setSelected(s => ({ ...s, [key]: v }))
+    showToast('Saved')
   }
 
   async function handleDelete() {
@@ -75,6 +101,7 @@ export default function Topics({ showToast }) {
                       <div key={t.id} className="topic-card" onClick={() => openEdit(t)}>
                         <div className="topic-card-title">{t.title}</div>
                         <span className={`tag tag-${t.category}`}>{cat.label}</span>
+                        <OpenBtns t={t} showToast={showToast} />
                       </div>
                     )
                   })
@@ -115,6 +142,12 @@ export default function Topics({ showToast }) {
         <Field label="Notes">
           <Input value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Angles, references, anything" />
         </Field>
+        <Field label="Video on MacBook (optional)">
+          <Input value={form.video_mac} onChange={e => set('video_mac', e.target.value)} placeholder="/Users/you/Movies/hormuz.mp4" />
+        </Field>
+        <Field label="Video on PC (optional)">
+          <Input value={form.video_pc} onChange={e => set('video_pc', e.target.value)} placeholder="D:\\Videos\\hormuz.mp4" />
+        </Field>
         <button className="btn btn-lime btn-full" onClick={handleAdd} style={{ marginBottom: 8 }}>
           Add to Pipeline
         </button>
@@ -142,6 +175,21 @@ export default function Topics({ showToast }) {
               <div style={{ fontSize: 13, color: 'var(--t2)' }}>{selected.notes}</div>
             </div>
           )}
+          {(selected.video_mac || selected.video_pc) && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {selected.video_mac && <button className="btn btn-lime" style={{ flex: 1 }} onClick={() => { openLocal(selected.video_mac); showToast('Opening on Mac…') }}>▶ Open on Mac</button>}
+              {selected.video_pc && <button className="btn btn-lime" style={{ flex: 1 }} onClick={() => { openLocal(selected.video_pc); showToast('Opening on PC…') }}>▶ Open on PC</button>}
+            </div>
+          )}
+          <Field label="Video on MacBook">
+            <Input defaultValue={selected.video_mac || ''} placeholder="/Users/you/Movies/video.mp4" onBlur={e => saveVideo('video_mac', e.target.value)} />
+          </Field>
+          <Field label="Video on PC">
+            <Input defaultValue={selected.video_pc || ''} placeholder="D:\\Videos\\video.mp4" onBlur={e => saveVideo('video_pc', e.target.value)} />
+          </Field>
+          <p style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 12 }}>
+            First time on a device? Install the opener: <a href="/helpers/install-mac.command" download style={{ color: 'var(--lime)' }}>Mac</a> · <a href="/helpers/install-pc.ps1" download style={{ color: 'var(--lime)' }}>PC</a>
+          </p>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             {STAGES.indexOf(selected.stage) > 0 && (
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => handleMove(selected, 'back')}>
